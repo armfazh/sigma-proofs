@@ -6,8 +6,9 @@
 
 use crate::errors::{Error, Result};
 use crate::linear_relation::CanonicalLinearRelation;
-use crate::traits::{ScalarRng, SigmaProtocol, SigmaProtocolSimulator, Transcript};
-use crate::{LinearRelation, MultiScalarMul, Nizk};
+use crate::rng::{random_scalars, random_scalars_vec};
+use crate::traits::{SigmaProtocol, SigmaProtocolSimulator, Transcript};
+use crate::{LinearRelation, Nizk};
 use alloc::vec::Vec;
 
 use group::prime::PrimeGroup;
@@ -42,13 +43,13 @@ where
     fn prover_commit(
         &self,
         witness: &Self::Witness,
-        rng: &mut impl ScalarRng,
+        rng: &mut impl RngCore,
     ) -> Result<(Vec<Self::Commitment>, Self::ProverState)> {
         if witness.len() < self.num_scalars {
             return Err(Error::InvalidInstanceWitnessPair);
         }
 
-        let nonces = rng.random_scalars_vec::<G>(self.num_scalars);
+        let nonces = random_scalars_vec::<G>(rng, self.num_scalars);
         let commitment = self.evaluate(&nonces);
         let prover_state = (nonces.to_vec(), witness.to_vec());
         Ok((commitment, prover_state))
@@ -240,8 +241,8 @@ where
     ///
     /// # Returns
     /// - A commitment and response forming a valid proof for the given challenge.
-    fn simulate_response(&self, rng: &mut impl ScalarRng) -> Vec<Self::Response> {
-        rng.random_scalars_vec::<G>(self.num_scalars)
+    fn simulate_response(&self, rng: &mut impl RngCore) -> Vec<Self::Response> {
+        random_scalars_vec::<G>(rng, self.num_scalars)
     }
 
     /// Simulates a full proof transcript using a randomly generated challenge.
@@ -251,8 +252,8 @@ where
     ///
     /// # Returns
     /// - A tuple `(commitment, challenge, response)` forming a valid proof.
-    fn simulate_transcript(&self, rng: &mut impl ScalarRng) -> Result<Transcript<Self>> {
-        let [challenge] = rng.random_scalars::<G, _>();
+    fn simulate_transcript(&self, rng: &mut impl RngCore) -> Result<Transcript<Self>> {
+        let [challenge] = random_scalars::<G, _>(rng);
         let response = self.simulate_response(rng);
         let commitment = self.simulate_commitment(&challenge, &response)?;
         Ok((commitment, challenge, response))

@@ -2,11 +2,9 @@
 
 use crate::duplex_sponge::DuplexSpongeInterface;
 use crate::duplex_sponge::{keccak::KeccakDuplexSponge, shake::ShakeDuplexSponge};
-use alloc::vec;
-use ff::PrimeField;
+use crate::rng::scalar_from_uniform_bytes;
 use group::prime::PrimeGroup;
-use num_bigint::BigUint;
-use num_traits::identities::One;
+use spongefish::NargDeserialize;
 
 /// A trait defining the behavior of a domain-separated codec hashing, which is typically used for [`crate::traits::SigmaProtocol`]s.
 ///
@@ -34,11 +32,6 @@ pub trait Codec {
 
     /// Produces a scalar that can be used as a challenge from the codec.
     fn verifier_challenge(&mut self) -> Self::Challenge;
-}
-
-fn cardinal<F: PrimeField>() -> BigUint {
-    let bytes = (F::ZERO - F::ONE).to_repr();
-    BigUint::from_bytes_le(bytes.as_ref()) + BigUint::one()
 }
 
 /// A byte-level Schnorr codec that works with any duplex sponge.
@@ -82,6 +75,7 @@ pub fn compute_iv<H: DuplexSpongeInterface>(
 impl<G, H> Codec for ByteSchnorrCodec<G, H>
 where
     G: PrimeGroup,
+    G::Scalar: NargDeserialize,
     H: DuplexSpongeInterface,
 {
     type Challenge = G::Scalar;
@@ -103,23 +97,9 @@ where
     }
 
     fn verifier_challenge(&mut self) -> Self::Challenge {
-        #[allow(clippy::manual_div_ceil)]
-        let scalar_byte_length = (G::Scalar::NUM_BITS as usize + 7) / 8;
-
-        let uniform_bytes = self.hasher.squeeze(scalar_byte_length + 16);
-        let scalar = BigUint::from_bytes_be(&uniform_bytes);
-        let reduced = scalar % cardinal::<G::Scalar>();
-
-        let mut bytes = vec![0u8; scalar_byte_length];
-        let reduced_bytes = reduced.to_bytes_be();
-        let start = bytes.len() - reduced_bytes.len();
-        bytes[start..].copy_from_slice(&reduced_bytes);
-        bytes.reverse();
-
-        let mut repr = <G::Scalar as PrimeField>::Repr::default();
-        repr.as_mut().copy_from_slice(&bytes);
-
-        <G::Scalar as PrimeField>::from_repr(repr).expect("Error")
+        scalar_from_uniform_bytes::<G>(|u| {
+            u.copy_from_slice(&self.hasher.squeeze(u.len()));
+        })
     }
 }
 

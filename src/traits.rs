@@ -7,6 +7,7 @@
 use crate::errors::Result;
 use alloc::vec::Vec;
 use group::Group;
+use rand_core::RngCore;
 use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
 
 /// An automatic trait helper for sampling scalars from an RNG.
@@ -72,7 +73,7 @@ pub trait SigmaProtocol {
     fn prover_commit(
         &self,
         witness: &Self::Witness,
-        rng: &mut impl ScalarRng,
+        rng: &mut impl RngCore,
     ) -> Result<(Vec<Self::Commitment>, Self::ProverState)>;
 
     /// Computes the prover's response to a challenge based on the prover state.
@@ -118,7 +119,7 @@ pub trait SigmaProtocolSimulator: SigmaProtocol {
     /// Generates a random response (e.g. for simulation or OR composition).
     ///
     /// Typically used to simulate a proof without a witness.
-    fn simulate_response(&self, rng: &mut impl ScalarRng) -> Vec<Self::Response>;
+    fn simulate_response(&self, rng: &mut impl RngCore) -> Vec<Self::Response>;
 
     /// Simulates a commitment for which ('commitment', 'challenge', 'response') is a valid transcript.
     ///
@@ -131,5 +132,5 @@ pub trait SigmaProtocolSimulator: SigmaProtocol {
 
     /// Generates a full simulated proof transcript (commitment, challenge, response)
     /// without requiring knowledge of a witness.
-    fn simulate_transcript(&self, rng: &mut impl ScalarRng) -> Result<Transcript<Self>>;
+    fn simulate_transcript(&self, rng: &mut impl RngCore) -> Result<Transcript<Self>>;
 }

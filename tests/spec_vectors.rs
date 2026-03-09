@@ -1,16 +1,19 @@
 use bls12_381::G1Projective;
 use group::{ff::PrimeField, prime::PrimeGroup};
+use rand::SeedableRng;
 use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
 
 use sigma_proofs::{linear_relation::CanonicalLinearRelation, MultiScalarMul, Nizk};
 
 mod spec;
-use spec::{rng::MockPRNG, vectors::TestVector};
+use spec::vectors::TestVector;
+
+use crate::spec::rng::Shake128PRNG;
 
 #[test]
 fn test_spec_testvectors() {
     type G = G1Projective;
-    let vectors_json = include_str!("./spec/testdata/sigma_Keccak1600_BLS12381.json");
+    let vectors_json = include_str!("./spec/testdata/testSigmaProtocols.json");
     testvectors::<G>(vectors_json);
 }
 
@@ -64,8 +67,8 @@ where
         );
 
         // Generate proof with the proof generation RNG
-        let randomness = vector.randomness.into_iter().map(|h| h.0);
-        let mut proof_rng = MockPRNG(randomness);
+        let proof_rng_seed = ["proof_generation_seed".as_bytes(), &vec![0u8; 21]].concat();
+        let mut proof_rng = Shake128PRNG::from_seed(proof_rng_seed.try_into().unwrap());
         let proof_batchable = nizk.prove_batchable(&witness, &mut proof_rng).unwrap();
 
         // Verify the proof matches

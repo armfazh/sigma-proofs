@@ -19,7 +19,6 @@
 
 mod relations;
 
-use core::{array::from_fn, iter::repeat_with};
 use std::{
     hint::black_box,
     sync::LazyLock,
@@ -27,14 +26,15 @@ use std::{
 };
 
 use curve25519_dalek::{RistrettoPoint as G, Scalar};
-use group::{ff::Field, Group};
-
+use rand::RngCore;
 use rand_chacha::{rand_core::SeedableRng, ChaCha12Rng};
 use serial_test::serial;
+
 use sigma_proofs::{
     composition::{ComposedRelation, ComposedWitness},
     linear_relation::{CanonicalLinearRelation, Sum},
-    traits::{ScalarRng, SigmaProtocol, SigmaProtocolSimulator},
+    rng::random_scalars,
+    traits::{SigmaProtocol, SigmaProtocolSimulator},
     LinearRelation, Nizk,
 };
 
@@ -102,7 +102,7 @@ fn baseline() {
 }
 
 fn wide_relation<const WIDTH: usize>(
-    rng: &mut impl ScalarRng,
+    rng: &mut impl RngCore,
 ) -> (CanonicalLinearRelation<G>, Vec<Scalar>) {
     let mut rel = LinearRelation::<G>::new();
     let constraint: Sum<_> = (0..WIDTH)
@@ -110,7 +110,7 @@ fn wide_relation<const WIDTH: usize>(
         .sum();
     let _ = rel.allocate_eq(constraint);
 
-    let wit = rng.random_scalars::<G, WIDTH>();
+    let wit = random_scalars::<G, WIDTH>(rng);
     rel.compute_image(&wit).unwrap();
     (rel.try_into().unwrap(), wit.to_vec())
 }
@@ -169,13 +169,22 @@ where
 /// witnesses.
 struct FixedRng;
 
-impl ScalarRng for FixedRng {
-    fn random_scalars<G: Group, const N: usize>(&mut self) -> [G::Scalar; N] {
-        from_fn(|_| <G::Scalar as Field>::ONE)
+impl RngCore for FixedRng {
+    fn next_u32(&mut self) -> u32 {
+        unimplemented!()
     }
 
-    fn random_scalars_vec<G: Group>(&mut self, n: usize) -> Vec<G::Scalar> {
-        repeat_with(|| <G::Scalar as Field>::ONE).take(n).collect()
+    fn next_u64(&mut self) -> u64 {
+        unimplemented!()
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        dest.fill(0);
+        dest[dest.len() - 1] = 0x01;
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+        Ok(self.fill_bytes(dest))
     }
 }
 

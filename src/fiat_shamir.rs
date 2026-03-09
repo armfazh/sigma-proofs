@@ -14,13 +14,13 @@
 use crate::duplex_sponge::keccak::KeccakDuplexSponge;
 use crate::duplex_sponge::DuplexSpongeInterface;
 use crate::errors::Error;
-use crate::traits::ScalarRng;
 use crate::traits::SigmaProtocol;
 use crate::traits::SigmaProtocolSimulator;
 use alloc::{vec, vec::Vec};
 use ff::PrimeField;
 use num_bigint::BigUint;
 use num_traits::identities::One;
+use rand_core::RngCore;
 use spongefish::{Encoding, NargDeserialize, NargSerialize};
 
 /// A Fiat-Shamir transformation of a [`SigmaProtocol`] into a non-interactive proof.
@@ -81,7 +81,7 @@ where
     pub fn prove_batchable(
         &self,
         witness: &P::Witness,
-        rng: &mut impl ScalarRng,
+        rng: &mut impl RngCore,
     ) -> Result<Vec<u8>, Error> {
         let protocol_id = self.interactive_proof.protocol_identifier();
         let instance_label = self.interactive_proof.instance_label();
@@ -152,7 +152,7 @@ where
     pub fn prove_compact(
         &self,
         witness: &P::Witness,
-        rng: &mut impl ScalarRng,
+        rng: &mut impl RngCore,
     ) -> Result<Vec<u8>, Error> {
         let protocol_id = self.interactive_proof.protocol_identifier();
         let instance_label = self.interactive_proof.instance_label();
