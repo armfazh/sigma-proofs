@@ -4,6 +4,7 @@
 //! a Sigma protocol proving different types of discrete logarithm relations (eg. Schnorr, Pedersen's commitments)
 //! through a group morphism abstraction (see [Maurer09](https://crypto-test.ethz.ch/publications/files/Maurer09.pdf)).
 
+use crate::codec::Codec;
 use crate::errors::{Error, Result};
 use crate::linear_relation::CanonicalLinearRelation;
 use crate::rng::{random_scalars, random_scalars_vec};
@@ -131,7 +132,7 @@ where
 
     fn protocol_identifier(&self) -> [u8; 64] {
         let mut id = [0u8; 64];
-        id[..30].clone_from_slice(b"sigma-proofs_Shake128_BLS12381");
+        id[..self.protocol_id.len()].copy_from_slice(&self.protocol_id);
         id
     }
 }
@@ -152,7 +153,7 @@ where
     ///
     /// # Example
     /// ```
-    /// # use sigma_proofs::{LinearRelation, Nizk};
+    /// # use sigma_proofs::{LinearRelation, Nizk, codec::Shake128DuplexSponge};
     /// # use curve25519_dalek::RistrettoPoint as G;
     /// # use curve25519_dalek::scalar::Scalar;
     /// # use rand::rngs::OsRng;
@@ -168,11 +169,14 @@ where
     /// relation.compute_image(&[x]).unwrap();
     ///
     /// // Convert to NIZK with custom context
-    /// let nizk = relation.into_nizk(b"my-protocol-v1").unwrap();
+    /// let nizk = relation.into_nizk::<Shake128DuplexSponge<G>>(b"my-protocol-v1").unwrap();
     /// let proof = nizk.prove_batchable(&vec![x], &mut OsRng).unwrap();
     /// assert!(nizk.verify_batchable(&proof).is_ok());
     /// ```
-    pub fn into_nizk(self, session_identifier: &[u8]) -> Result<Nizk<CanonicalLinearRelation<G>>> {
+    pub fn into_nizk<C: Codec<Challenge = <Self as SigmaProtocol>::Challenge>>(
+        self,
+        session_identifier: &[u8],
+    ) -> Result<Nizk<CanonicalLinearRelation<G>, C>> {
         Ok(Nizk::new(session_identifier, self))
     }
 }
@@ -195,7 +199,7 @@ where
     ///
     /// # Example
     /// ```
-    /// # use sigma_proofs::{LinearRelation, Nizk};
+    /// # use sigma_proofs::{LinearRelation, Nizk, codec::Shake128DuplexSponge};
     /// # use curve25519_dalek::RistrettoPoint as G;
     /// # use curve25519_dalek::scalar::Scalar;
     /// # use rand::rngs::OsRng;
@@ -211,21 +215,21 @@ where
     /// relation.compute_image(&[x]).unwrap();
     ///
     /// // Convert to NIZK directly
-    /// let nizk = relation.into_nizk(b"my-protocol-v1").unwrap();
+    /// let nizk = relation.into_nizk::<Shake128DuplexSponge<G>>(b"my-protocol-v1").unwrap();
     /// let proof = nizk.prove_batchable(&vec![x], &mut OsRng).unwrap();
     /// assert!(nizk.verify_batchable(&proof).is_ok());
     /// ```
-    pub fn into_nizk(
+    pub fn into_nizk<C: Codec<Challenge = G::Scalar>>(
         self,
         session_identifier: &[u8],
-    ) -> crate::errors::Result<crate::Nizk<CanonicalLinearRelation<G>>>
+    ) -> crate::errors::Result<crate::Nizk<CanonicalLinearRelation<G>, C>>
     where
         G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize,
         G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
     {
         self.canonical()
             .map_err(|_| crate::errors::Error::InvalidInstanceWitnessPair)?
-            .into_nizk(session_identifier)
+            .into_nizk::<C>(session_identifier)
     }
 }
 impl<G> SigmaProtocolSimulator for CanonicalLinearRelation<G>

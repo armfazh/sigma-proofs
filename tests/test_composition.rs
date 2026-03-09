@@ -1,7 +1,10 @@
 use curve25519_dalek::ristretto::RistrettoPoint as G;
 use group::Group;
 
-use sigma_proofs::composition::{ComposedRelation, ComposedWitness};
+use sigma_proofs::{
+    codec::Shake128DuplexSponge,
+    composition::{ComposedRelation, ComposedWitness},
+};
 
 mod relations;
 pub use relations::*;
@@ -40,7 +43,7 @@ fn test_composition_example() {
     let instance = ComposedRelation::and([or_protocol1, relation3.into(), and_protocol1]);
     let witness = ComposedWitness::and([or_witness1, witness3.into(), and_witness1]);
 
-    let nizk = instance.into_nizk(domain_sep);
+    let nizk = instance.into_nizk::<Shake128DuplexSponge<G>>(domain_sep);
 
     // Batchable and compact proofs
     let proof_batchable_bytes = nizk.prove_batchable(&witness, &mut rng).unwrap();
@@ -79,7 +82,7 @@ fn test_or_one_true() {
     let witness_or_1 = ComposedWitness::or([witness1, wrong_witness2]);
     let witness_or_2 = ComposedWitness::or([wrong_witness1, witness2]);
 
-    let nizk = or_protocol.into_nizk(b"test_or_one_true");
+    let nizk = or_protocol.into_nizk::<Shake128DuplexSponge<G>>(b"test_or_one_true");
 
     for witness in [witness_or_1, witness_or_2] {
         // Batchable and compact proofs
@@ -104,7 +107,7 @@ fn test_or_both_true() {
     let or_protocol = ComposedRelation::or([relation1, relation2]);
 
     let witness = ComposedWitness::or([witness1, witness2]);
-    let nizk = or_protocol.into_nizk(b"test_or_both_true");
+    let nizk = or_protocol.into_nizk::<Shake128DuplexSponge<G>>(b"test_or_both_true");
 
     // Batchable and compact proofs
     let proof_batchable_bytes = nizk.prove_batchable(&witness, &mut rng).unwrap();
@@ -130,7 +133,8 @@ fn test_threshold_two_of_three() {
 
     let threshold_protocol = ComposedRelation::threshold(2, [relation1, relation2, relation3]);
     let witness = ComposedWitness::threshold([witness1, witness2, wrong_witness3]);
-    let nizk = threshold_protocol.into_nizk(b"test_threshold_two_of_three");
+    let nizk =
+        threshold_protocol.into_nizk::<Shake128DuplexSponge<G>>(b"test_threshold_two_of_three");
 
     let proof_batchable_bytes = nizk.prove_batchable(&witness, &mut rng).unwrap();
     let proof_compact_bytes = nizk.prove_compact(&witness, &mut rng).unwrap();
@@ -164,7 +168,8 @@ fn test_threshold_two_of_ten_three_valid() {
     let threshold_protocol =
         ComposedRelation::threshold(2, relations.into_iter().collect::<Vec<_>>());
     let witness = ComposedWitness::threshold(witnesses.into_iter().collect::<Vec<_>>());
-    let nizk = threshold_protocol.into_nizk(b"test_threshold_two_of_ten_three_valid");
+    let nizk = threshold_protocol
+        .into_nizk::<Shake128DuplexSponge<G>>(b"test_threshold_two_of_ten_three_valid");
 
     let proof_batchable_bytes = nizk.prove_batchable(&witness, &mut rng).unwrap();
     let proof_compact_bytes = nizk.prove_compact(&witness, &mut rng).unwrap();

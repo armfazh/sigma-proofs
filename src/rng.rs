@@ -20,7 +20,7 @@ pub fn random_scalars_vec<G: Group>(rng: &mut impl RngCore, len: usize) -> Vec<G
         .collect()
 }
 
-pub(crate) fn scalar_from_uniform_bytes<G: Group>(mut fill: impl FnMut(&mut [u8])) -> G::Scalar {
+pub(crate) fn scalar_from_uniform_bytes<G: Group>(fill: impl FnOnce(&mut [u8])) -> G::Scalar {
     const EXTRA_BYTES: usize = 16;
     let scalar_length = (<G::Scalar as PrimeField>::NUM_BITS as usize + 7) >> 3;
     let mut uniform_bytes = vec![0u8; scalar_length + EXTRA_BYTES];
@@ -33,7 +33,7 @@ pub(crate) fn scalar_from_uniform_bytes<G: Group>(mut fill: impl FnMut(&mut [u8]
     let reduced_bytes = reduced.to_bytes_be();
 
     let mut repr = <G::Scalar as Field>::ZERO.to_repr();
-    let start = repr.as_ref().len() - reduced_bytes.len();
+    let start = scalar_length - reduced_bytes.len();
     repr.as_mut()[start..].copy_from_slice(&reduced_bytes);
 
     if isLittleEndian::<G>() {

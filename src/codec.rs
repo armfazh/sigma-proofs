@@ -4,7 +4,6 @@ use crate::duplex_sponge::DuplexSpongeInterface;
 use crate::duplex_sponge::{keccak::KeccakDuplexSponge, shake::ShakeDuplexSponge};
 use crate::rng::scalar_from_uniform_bytes;
 use group::prime::PrimeGroup;
-use spongefish::NargDeserialize;
 
 /// A trait defining the behavior of a domain-separated codec hashing, which is typically used for [`crate::traits::SigmaProtocol`]s.
 ///
@@ -44,61 +43,42 @@ where
     G: PrimeGroup,
     H: DuplexSpongeInterface,
 {
-    hasher: H,
+    sponge: H,
     _marker: core::marker::PhantomData<G>,
-}
-
-const WORD_SIZE: usize = 4;
-
-fn length_to_bytes(x: usize) -> [u8; WORD_SIZE] {
-    (x as u32).to_be_bytes()
-}
-
-/// Compute the initialization vector (IV) for a protocol instance.
-///
-/// This function computes a deterministic IV from the protocol identifier,
-/// session identifier, and instance label using the specified duplex sponge.
-pub fn compute_iv<H: DuplexSpongeInterface>(
-    protocol_id: &[u8; 64],
-    session_id: &[u8],
-    instance_label: &[u8],
-) -> [u8; 64] {
-    let mut tmp = H::new([0u8; 64]);
-    tmp.absorb(protocol_id);
-    tmp.absorb(&length_to_bytes(session_id.len()));
-    tmp.absorb(session_id);
-    tmp.absorb(&length_to_bytes(instance_label.len()));
-    tmp.absorb(instance_label);
-    tmp.squeeze(64).try_into().unwrap()
 }
 
 impl<G, H> Codec for ByteSchnorrCodec<G, H>
 where
     G: PrimeGroup,
-    G::Scalar: NargDeserialize,
     H: DuplexSpongeInterface,
 {
     type Challenge = G::Scalar;
 
-    fn new(protocol_id: &[u8; 64], session_id: &[u8], instance_label: &[u8]) -> Self {
-        let mut hasher = H::new(*protocol_id);
-        hasher.absorb(&length_to_bytes(session_id.len()));
-        hasher.absorb(session_id);
-        hasher.absorb(&length_to_bytes(instance_label.len()));
-        hasher.absorb(instance_label);
+    fn new(protocol_id: &[u8; 64], session: &[u8], instance_label: &[u8]) -> Self {
+        let iv_prefix = b"fiat-shamir/session-id";
+        let mut iv = [0u8; 64];
+        iv[..iv_prefix.len()].copy_from_slice(iv_prefix);
+
+        let mut session_hash_state = H::new(iv);
+        session_hash_state.absorb(session);
+        let session_id = [vec![0u8; 32], session_hash_state.squeeze(32)].concat();
+
+        let mut sponge = H::new(*protocol_id);
+        sponge.absorb(&session_id);
+        sponge.absorb(instance_label);
         Self {
-            hasher,
+            sponge,
             _marker: core::marker::PhantomData,
         }
     }
 
     fn prover_message(&mut self, data: &[u8]) {
-        self.hasher.absorb(data);
+        self.sponge.absorb(data);
     }
 
     fn verifier_challenge(&mut self) -> Self::Challenge {
         scalar_from_uniform_bytes::<G>(|u| {
-            u.copy_from_slice(&self.hasher.squeeze(u.len()));
+            u.copy_from_slice(&self.sponge.squeeze(u.len()));
         })
     }
 }

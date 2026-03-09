@@ -1,8 +1,9 @@
 use bls12_381::G1Projective as BLS12381_Group;
 use group::prime::PrimeGroup;
+use p256::ProjectivePoint as P256_Group;
 
 use rand::SeedableRng;
-use sigma_proofs::{linear_relation::CanonicalLinearRelation, Nizk};
+use sigma_proofs::{codec::Shake128DuplexSponge, linear_relation::CanonicalLinearRelation, Nizk};
 
 mod spec;
 use spec::{rng::TestDRNG, vectors::TestVector};
@@ -12,6 +13,12 @@ use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
 fn test_spec_testvectors_bls12381() {
     let vectors_json = include_str!("./spec/vectors/sigma-proofs_Shake128_BLS12381.json");
     testvectors::<BLS12381_Group>(vectors_json);
+}
+
+#[test]
+fn test_spec_testvectors_p256() {
+    let vectors_json = include_str!("./spec/vectors/sigma-proofs_Shake128_P256.json");
+    testvectors::<P256_Group>(vectors_json);
 }
 
 fn testvectors<G>(vectors_json: &str)
@@ -28,15 +35,18 @@ where
     for vector in test_vectors {
         let test_name = vector.Protocol;
         // Parse the statement from the test vector
-        let parsed_instance = CanonicalLinearRelation::<G>::from_label(&vector.Statement.0)
+        let mut parsed_instance = CanonicalLinearRelation::<G>::from_label(&vector.Statement.0)
             .expect("Failed to parse statement");
 
+        parsed_instance.protocol_id = vector.Ciphersuite.as_bytes().to_vec();
         // Decode the witness from the test vector
-        let witness = sigma_proofs::group::serialization::deserialize_scalars::<G>(
-            &vector.Witness.0,
-            parsed_instance.num_scalars,
-        )
-        .expect("Failed to deserialize witness");
+        let mut cursor = vector.Witness.0.as_slice();
+        let witness: Vec<_> = (0..parsed_instance.num_scalars)
+            .map(|_| {
+                G::Scalar::deserialize_from_narg(&mut cursor)
+                    .expect("Failed to deserialize witness")
+            })
+            .collect();
 
         assert_eq!(
             witness.len(),
@@ -52,7 +62,8 @@ where
         );
 
         // Create NIZK with the session_id from the test vector
-        let nizk = Nizk::new(&vector.SessionId.0, parsed_instance);
+        let nizk = Nizk::<_, Shake128DuplexSponge<G>>::new(&vector.SessionId.0, parsed_instance);
+        let mut proof_rng = TestDRNG::from_seed(PROOF_RNG_SEED);
 
         // Commitment_response format
         {
@@ -65,7 +76,6 @@ where
             );
 
             // Generate proof with the proof generation RNG
-            let mut proof_rng = TestDRNG::from_seed(PROOF_RNG_SEED);
             let proof_batchable = nizk.prove_batchable(&witness, &mut proof_rng).unwrap();
 
             // Verify the proof matches
@@ -93,7 +103,6 @@ where
             );
 
             // Generate proof with the proof generation RNG
-            let mut proof_rng = TestDRNG::from_seed(PROOF_RNG_SEED);
             let proof_compact = nizk.prove_compact(&witness, &mut proof_rng).unwrap();
 
             // Verify the proof matches

@@ -6,19 +6,8 @@
 
 use crate::errors::Result;
 use alloc::vec::Vec;
-use group::Group;
 use rand_core::RngCore;
 use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
-
-/// An automatic trait helper for sampling scalars from an RNG.
-///
-/// This trait is implemented for all types implementing `rand_core::RngCore`.
-/// Passing any cryptographically-secure random number generator (CSRNG) is
-/// recommended for creating proofs.
-pub trait ScalarRng {
-    fn random_scalars<G: Group, const N: usize>(&mut self) -> [G::Scalar; N];
-    fn random_scalars_vec<G: Group>(&mut self, n: usize) -> Vec<G::Scalar>;
-}
 
 pub type Transcript<P> = (
     Vec<<P as SigmaProtocol>::Commitment>,

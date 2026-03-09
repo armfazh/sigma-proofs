@@ -11,22 +11,23 @@
 //! This struct is generic over:
 //! - `P`: the underlying Sigma protocol ([`SigmaProtocol`] trait).
 
-use crate::duplex_sponge::keccak::KeccakDuplexSponge;
-use crate::duplex_sponge::DuplexSpongeInterface;
+use std::marker::PhantomData;
+
+use crate::codec::Codec;
 use crate::errors::Error;
+use crate::group::serialization::deserialize_messages;
+use crate::group::serialization::serialize_messages;
 use crate::traits::SigmaProtocol;
 use crate::traits::SigmaProtocolSimulator;
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use ff::PrimeField;
-use num_bigint::BigUint;
-use num_traits::identities::One;
 use rand_core::RngCore;
 use spongefish::{Encoding, NargDeserialize, NargSerialize};
 
 /// A Fiat-Shamir transformation of a [`SigmaProtocol`] into a non-interactive proof.
 ///
 /// [`Nizk`] wraps an interactive Sigma protocol `P`
-/// and a hash-based codec `C`, to produce non-interactive proofs.
+/// and a codec `C`, to produce non-interactive proofs.
 ///
 /// It manages the domain separation, codec reset,
 /// proof generation, and proof verification.
@@ -35,22 +36,25 @@ use spongefish::{Encoding, NargDeserialize, NargSerialize};
 /// - `P`: the Sigma protocol implementation.
 /// - `C`: the codec used for Fiat-Shamir.
 #[derive(Debug)]
-pub struct Nizk<P>
+pub struct Nizk<P, C>
 where
     P: SigmaProtocol,
     P::Challenge: PartialEq,
+    C: Codec,
 {
     pub session_id: Vec<u8>,
     /// Underlying interactive proof.
     pub interactive_proof: P,
+    _phantom: PhantomData<C>,
 }
 
-impl<P> Nizk<P>
+impl<P, C> Nizk<P, C>
 where
     P: SigmaProtocol,
     P::Challenge: PartialEq + PrimeField,
     P::Commitment: NargSerialize + NargDeserialize + Encoding,
     P::Response: NargSerialize + NargDeserialize + Encoding,
+    C: Codec<Challenge = P::Challenge>,
 {
     /// Constructs a new [`Nizk`] instance.
     ///
@@ -64,6 +68,7 @@ where
         Self {
             session_id: session_identifier.to_vec(),
             interactive_proof,
+            _phantom: PhantomData,
         }
     }
 
@@ -85,16 +90,16 @@ where
     ) -> Result<Vec<u8>, Error> {
         let protocol_id = self.interactive_proof.protocol_identifier();
         let instance_label = self.interactive_proof.instance_label();
-        let mut keccak = initialize_sponge(protocol_id, &self.session_id, instance_label.as_ref());
         let (commitment, ip_state) = self.interactive_proof.prover_commit(witness, rng)?;
         let commitment_bytes = serialize_messages(&commitment);
-        keccak.absorb(&commitment_bytes);
-        let challenge = derive_challenge::<P::Challenge>(&mut keccak);
+        let mut codec = C::new(&protocol_id, &self.session_id, instance_label.as_ref());
+        codec.prover_message(&commitment_bytes);
+        let challenge = codec.verifier_challenge();
         let response = self
             .interactive_proof
             .prover_response(ip_state, &challenge)?;
         let mut proof = commitment_bytes;
-        serialize_messages_into(&response, &mut proof);
+        response.serialize_into_narg(&mut proof);
         Ok(proof)
     }
 
@@ -118,10 +123,10 @@ where
         let response_len = self.interactive_proof.response_len();
         let mut cursor = narg_string;
         let commitment = deserialize_messages(commitment_len, &mut cursor)?;
-        let commitment_bytes_len = narg_string.len().saturating_sub(cursor.len());
-        let mut keccak = initialize_sponge(protocol_id, &self.session_id, instance_label.as_ref());
-        keccak.absorb(&narg_string[..commitment_bytes_len]);
-        let challenge = derive_challenge::<P::Challenge>(&mut keccak);
+        let commitment_bytes = serialize_messages(&commitment);
+        let mut codec = C::new(&protocol_id, &self.session_id, instance_label.as_ref());
+        codec.prover_message(&commitment_bytes);
+        let challenge = codec.verifier_challenge();
         let response = deserialize_messages(response_len, &mut cursor)?;
         if !cursor.is_empty() {
             return Err(Error::VerificationFailure);
@@ -131,10 +136,11 @@ where
     }
 }
 
-impl<P> Nizk<P>
+impl<P, C> Nizk<P, C>
 where
     P: SigmaProtocol + SigmaProtocolSimulator,
     P::Challenge: PartialEq + NargDeserialize + NargSerialize + PrimeField,
+    C: Codec<Challenge = P::Challenge>,
 {
     /// Generates a compact serialized proof.
     ///
@@ -156,10 +162,11 @@ where
     ) -> Result<Vec<u8>, Error> {
         let protocol_id = self.interactive_proof.protocol_identifier();
         let instance_label = self.interactive_proof.instance_label();
-        let mut keccak = initialize_sponge(protocol_id, &self.session_id, instance_label.as_ref());
         let (commitment, ip_state) = self.interactive_proof.prover_commit(witness, rng)?;
-        keccak.absorb(&serialize_messages(&commitment));
-        let challenge = derive_challenge::<P::Challenge>(&mut keccak);
+        let commitment_bytes = serialize_messages(&commitment);
+        let mut codec = C::new(&protocol_id, &self.session_id, instance_label.as_ref());
+        codec.prover_message(&commitment_bytes);
+        let challenge = codec.verifier_challenge();
         let response = self
             .interactive_proof
             .prover_response(ip_state, &challenge)?;
@@ -167,7 +174,7 @@ where
         // Serialize the compact proof string.
         let mut proof = Vec::new();
         challenge.serialize_into_narg(&mut proof);
-        serialize_messages_into(&response, &mut proof);
+        response.serialize_into_narg(&mut proof);
         Ok(proof)
     }
 
@@ -207,10 +214,10 @@ where
 
         // Re-compute the challenge and ensure it's the same as the one
         // we received
-        let mut keccak = initialize_sponge(protocol_id, &self.session_id, instance_label.as_ref());
         let commitment_bytes = serialize_messages(&commitment);
-        keccak.absorb(&commitment_bytes);
-        let recomputed_challenge = derive_challenge::<P::Challenge>(&mut keccak);
+        let mut codec = C::new(&protocol_id, &self.session_id, instance_label.as_ref());
+        codec.prover_message(&commitment_bytes);
+        let recomputed_challenge = codec.verifier_challenge();
         if challenge != recomputed_challenge {
             return Err(Error::VerificationFailure);
         }
@@ -223,66 +230,4 @@ where
         // valid.
         Ok(())
     }
-}
-
-fn length_to_bytes(x: usize) -> [u8; 4] {
-    (x as u32).to_be_bytes()
-}
-
-fn absorb_len_prefixed(sponge: &mut KeccakDuplexSponge, data: &[u8]) {
-    sponge.absorb(&length_to_bytes(data.len()));
-    sponge.absorb(data);
-}
-
-fn initialize_sponge(
-    protocol_id: [u8; 64],
-    session_id: &[u8],
-    instance_label: &[u8],
-) -> KeccakDuplexSponge {
-    let mut sponge = KeccakDuplexSponge::new(protocol_id);
-    absorb_len_prefixed(&mut sponge, session_id);
-    absorb_len_prefixed(&mut sponge, instance_label);
-    sponge
-}
-
-fn field_cardinality<F: PrimeField>() -> BigUint {
-    let bytes = (F::ZERO - F::ONE).to_repr();
-    BigUint::from_bytes_le(bytes.as_ref()) + BigUint::one()
-}
-
-fn derive_challenge<F: PrimeField>(sponge: &mut KeccakDuplexSponge) -> F {
-    let scalar_byte_length = (F::NUM_BITS as usize).div_ceil(8);
-    let uniform_bytes = sponge.squeeze(scalar_byte_length + 16);
-    let scalar = BigUint::from_bytes_be(&uniform_bytes);
-    let reduced = scalar % field_cardinality::<F>();
-
-    let mut bytes = vec![0u8; scalar_byte_length];
-    let reduced_bytes = reduced.to_bytes_be();
-    let start = bytes.len().saturating_sub(reduced_bytes.len());
-    bytes[start..start + reduced_bytes.len()].copy_from_slice(&reduced_bytes);
-    bytes.reverse();
-
-    let mut repr = F::Repr::default();
-    repr.as_mut().copy_from_slice(&bytes);
-    F::from_repr(repr).expect("challenge reduction should not fail")
-}
-
-fn serialize_messages_into<T: NargSerialize>(messages: &[T], out: &mut Vec<u8>) {
-    for message in messages {
-        message.serialize_into_narg(out);
-    }
-}
-
-fn serialize_messages<T: NargSerialize>(messages: &[T]) -> Vec<u8> {
-    let mut out = Vec::new();
-    serialize_messages_into(messages, &mut out);
-    out
-}
-
-fn deserialize_messages<T: NargDeserialize>(len: usize, buf: &mut &[u8]) -> Result<Vec<T>, Error> {
-    let mut out = Vec::with_capacity(len);
-    for _ in 0..len {
-        out.push(T::deserialize_from_narg(buf).map_err(|_| Error::VerificationFailure)?);
-    }
-    Ok(out)
 }

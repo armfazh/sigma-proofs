@@ -9,6 +9,7 @@ mod instance_validation {
     use ff::Field;
     use group::Group;
     use sigma_proofs::{
+        codec::Shake128DuplexSponge,
         errors::Error,
         linear_relation::{CanonicalLinearRelation, LinearRelation},
     };
@@ -116,7 +117,9 @@ mod instance_validation {
     fn test_empty_string() {
         let rng = &mut rand::thread_rng();
         let relation = LinearRelation::<G>::new();
-        let nizk = relation.into_nizk(b"test_session").unwrap();
+        let nizk = relation
+            .into_nizk::<Shake128DuplexSponge<G>>(b"test_session")
+            .unwrap();
         let narg_string = nizk.prove_batchable(&vec![], rng).unwrap();
         assert!(narg_string.is_empty());
 
@@ -145,7 +148,9 @@ mod instance_validation {
         let B_var = linear_relation.allocate_element();
         let C_var = linear_relation.allocate_eq(B_var);
         linear_relation.set_elements([(B_var, B), (C_var, C)]);
-        let nizk = linear_relation.into_nizk(b"test_session").unwrap();
+        let nizk = linear_relation
+            .into_nizk::<Shake128DuplexSponge<G>>(b"test_session")
+            .unwrap();
         assert!(matches!(
             nizk.verify_batchable(&nizk.prove_batchable(&vec![], rng).unwrap())
                 .unwrap_err(),
@@ -228,11 +233,12 @@ mod proof_validation {
     use bls12_381::{G1Projective as G, Scalar};
     use ff::Field;
     use rand::RngCore;
+    use sigma_proofs::codec::Shake128DuplexSponge;
     use sigma_proofs::composition::{ComposedRelation, ComposedWitness};
     use sigma_proofs::linear_relation::{CanonicalLinearRelation, LinearRelation};
     use sigma_proofs::Nizk;
 
-    type TestNizk = Nizk<CanonicalLinearRelation<G>>;
+    type TestNizk = Nizk<CanonicalLinearRelation<G>, Shake128DuplexSponge<G>>;
 
     /// Helper function to create a simple discrete log proof
     fn create_valid_proof() -> (Vec<u8>, TestNizk) {
@@ -428,7 +434,7 @@ mod proof_validation {
         // Create OR composition
         let or_relation =
             ComposedRelation::or([lr1.canonical().unwrap(), lr2.canonical().unwrap()]);
-        let nizk = or_relation.into_nizk(b"test_or_relation");
+        let nizk = or_relation.into_nizk::<Shake128DuplexSponge<G>>(b"test_or_relation");
 
         // Create a correct witness for branch 1 (C = y*B)
         // Note: x is NOT a valid witness for branch 0 because C ≠ x*A

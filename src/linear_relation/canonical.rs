@@ -5,12 +5,13 @@ use core::marker::PhantomData;
 
 use ff::Field;
 use group::prime::PrimeGroup;
+use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
 use subtle::{Choice, ConstantTimeEq};
 
 use super::{GroupMap, GroupVar, LinearCombination, LinearRelation, ScalarTerm, ScalarVar};
 use crate::errors::{Error, InvalidInstance};
 use crate::group::msm::MultiScalarMul;
-use crate::serialization::serialize_elements;
+use crate::serialization::serialize_messages;
 
 /// A [`LinearRelation`] in canonical form, compatible with the IETF spec.
 ///
@@ -32,6 +33,8 @@ pub struct CanonicalLinearRelation<G: PrimeGroup> {
     pub group_elements: GroupMap<G>,
     /// Number of scalar variables
     pub num_scalars: usize,
+    /// Protocol identifier
+    pub protocol_id: Vec<u8>,
 }
 
 /// Private type alias used to simplify function signatures below.
@@ -40,7 +43,11 @@ pub struct CanonicalLinearRelation<G: PrimeGroup> {
 /// Using an index-addressed vector keeps lookup fast while preserving deterministic ordering.
 type WeightedGroupCache<G> = Vec<Vec<(<G as group::Group>::Scalar, GroupVar<G>)>>;
 
-impl<G: PrimeGroup> CanonicalLinearRelation<G> {
+impl<G> CanonicalLinearRelation<G>
+where
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize,
+    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+{
     /// Create a new empty canonical linear relation.
     ///
     /// This function is not meant to be publicly exposed. It is internally used to build a type-safe linear relation,
@@ -51,6 +58,7 @@ impl<G: PrimeGroup> CanonicalLinearRelation<G> {
             linear_combinations: Vec::new(),
             group_elements: GroupMap::default(),
             num_scalars: 0,
+            protocol_id: Vec::new(),
         }
     }
 
@@ -414,7 +422,11 @@ impl<G: PrimeGroup> CanonicalLinearRelation<G> {
     }
 }
 
-impl<G: PrimeGroup + MultiScalarMul> TryFrom<LinearRelation<G>> for CanonicalLinearRelation<G> {
+impl<G> TryFrom<LinearRelation<G>> for CanonicalLinearRelation<G>
+where
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+{
     type Error = InvalidInstance;
 
     fn try_from(value: LinearRelation<G>) -> Result<Self, Self::Error> {
@@ -422,7 +434,11 @@ impl<G: PrimeGroup + MultiScalarMul> TryFrom<LinearRelation<G>> for CanonicalLin
     }
 }
 
-impl<G: PrimeGroup + MultiScalarMul> TryFrom<&LinearRelation<G>> for CanonicalLinearRelation<G> {
+impl<G> TryFrom<&LinearRelation<G>> for CanonicalLinearRelation<G>
+where
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
+    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+{
     type Error = InvalidInstance;
 
     fn try_from(relation: &LinearRelation<G>) -> Result<Self, Self::Error> {
@@ -485,7 +501,11 @@ impl<G: PrimeGroup + MultiScalarMul> TryFrom<&LinearRelation<G>> for CanonicalLi
     }
 }
 
-impl<G: PrimeGroup + ConstantTimeEq + MultiScalarMul> CanonicalLinearRelation<G> {
+impl<G> CanonicalLinearRelation<G>
+where
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ ConstantTimeEq+ MultiScalarMul,
+    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+{
     /// Tests is the witness is valid.
     ///
     /// Returns a [`Choice`] indicating if the witness is valid for the instance constructed.

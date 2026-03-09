@@ -30,6 +30,7 @@ use spongefish::{
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 use crate::{
+    codec::Codec,
     errors::{Error, InvalidInstance},
     fiat_shamir::Nizk,
     linear_relation::{CanonicalLinearRelation, LinearRelation},
@@ -77,7 +78,11 @@ impl<G: PrimeGroup> From<CanonicalLinearRelation<G>> for ComposedRelation<G> {
     }
 }
 
-impl<G: PrimeGroup + MultiScalarMul> TryFrom<LinearRelation<G>> for ComposedRelation<G> {
+impl<G> TryFrom<LinearRelation<G>> for ComposedRelation<G>
+where
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+{
     type Error = InvalidInstance;
 
     fn try_from(value: LinearRelation<G>) -> Result<Self, Self::Error> {
@@ -1711,7 +1716,10 @@ where
     ///
     /// # Returns
     /// A `Nizk` instance ready for proving and verification
-    pub fn into_nizk(self, session_identifier: &[u8]) -> Nizk<ComposedRelation<G>> {
+    pub fn into_nizk<C: Codec<Challenge = <Self as SigmaProtocol>::Challenge>>(
+        self,
+        session_identifier: &[u8],
+    ) -> Nizk<ComposedRelation<G>, C> {
         Nizk::new(session_identifier, self)
     }
 }

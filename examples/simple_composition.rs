@@ -5,6 +5,7 @@ use curve25519_dalek::scalar::Scalar;
 use group::Group;
 use rand::rngs::OsRng;
 use sigma_proofs::{
+    codec::Shake128DuplexSponge,
     composition::{ComposedRelation, ComposedWitness},
     errors::Error,
     LinearRelation,
@@ -55,7 +56,7 @@ fn prove(P1: G, x2: Scalar, H: G) -> ProofResult<Vec<u8>> {
         ComposedWitness::Simple(vec![Scalar::from(0u64)]),
         ComposedWitness::Simple(vec![x2]),
     ]);
-    let nizk = instance.into_nizk(b"or_proof_example");
+    let nizk = instance.into_nizk::<Shake128DuplexSponge<G>>(b"or_proof_example");
 
     nizk.prove_batchable(&witness, &mut OsRng)
 }
@@ -64,7 +65,7 @@ fn prove(P1: G, x2: Scalar, H: G) -> ProofResult<Vec<u8>> {
 #[allow(non_snake_case)]
 fn verify(P1: G, P2: G, Q: G, H: G, proof: &[u8]) -> ProofResult<()> {
     let protocol = create_relation(P1, P2, Q, H);
-    let nizk = protocol.into_nizk(b"or_proof_example");
+    let nizk = protocol.into_nizk::<Shake128DuplexSponge<G>>(b"or_proof_example");
 
     nizk.verify_batchable(proof)
 }
