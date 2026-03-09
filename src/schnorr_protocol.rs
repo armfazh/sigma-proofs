@@ -131,7 +131,7 @@ where
 
     fn protocol_identifier(&self) -> [u8; 64] {
         let mut id = [0u8; 64];
-        id[..32].clone_from_slice(b"ietf sigma proof linear relation");
+        id[..30].clone_from_slice(b"sigma-proofs_Shake128_BLS12381");
         id
     }
 }

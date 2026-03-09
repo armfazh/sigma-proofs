@@ -1,20 +1,17 @@
-use bls12_381::G1Projective;
-use group::{ff::PrimeField, prime::PrimeGroup};
-use rand::SeedableRng;
-use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
+use bls12_381::G1Projective as BLS12381_Group;
+use group::prime::PrimeGroup;
 
-use sigma_proofs::{linear_relation::CanonicalLinearRelation, MultiScalarMul, Nizk};
+use rand::SeedableRng;
+use sigma_proofs::{linear_relation::CanonicalLinearRelation, Nizk};
 
 mod spec;
-use spec::vectors::TestVector;
-
-use crate::spec::rng::Shake128PRNG;
+use spec::{rng::TestDRNG, vectors::TestVector};
+use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
 
 #[test]
-fn test_spec_testvectors() {
-    type G = G1Projective;
-    let vectors_json = include_str!("./spec/testdata/testSigmaProtocols.json");
-    testvectors::<G>(vectors_json);
+fn test_spec_testvectors_bls12381() {
+    let vectors_json = include_str!("./spec/vectors/sigma-proofs_Shake128_BLS12381.json");
+    testvectors::<BLS12381_Group>(vectors_json);
 }
 
 fn testvectors<G>(vectors_json: &str)
@@ -22,26 +19,25 @@ where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
 {
+    const PROOF_RNG_SEED: [u8; 32] = *b"proof_generation_seed\0\0\0\0\0\0\0\0\0\0\0";
+
     let test_vectors: Vec<TestVector> = serde_json::from_str(vectors_json)
         .map_err(|e| format!("JSON parsing error: {e}"))
         .unwrap();
 
     for vector in test_vectors {
-        let test_name = vector.protocol;
+        let test_name = vector.Protocol;
         // Parse the statement from the test vector
-        let parsed_instance = CanonicalLinearRelation::<G>::from_label(&vector.statement.0)
+        let parsed_instance = CanonicalLinearRelation::<G>::from_label(&vector.Statement.0)
             .expect("Failed to parse statement");
 
         // Decode the witness from the test vector
-        let witness: Vec<G::Scalar> = vector
-            .witness
-            .iter()
-            .map(|h| {
-                let mut scalar = <G::Scalar as PrimeField>::Repr::default();
-                scalar.as_mut().copy_from_slice(&h.0);
-                <G::Scalar as PrimeField>::from_repr(scalar).unwrap()
-            })
-            .collect();
+        let witness = sigma_proofs::group::serialization::deserialize_scalars::<G>(
+            &vector.Witness.0,
+            parsed_instance.num_scalars,
+        )
+        .expect("Failed to deserialize witness");
+
         assert_eq!(
             witness.len(),
             parsed_instance.num_scalars,
@@ -51,37 +47,67 @@ where
         // Verify the parsed instance can be re-serialized to the same label
         assert_eq!(
             parsed_instance.label(),
-            vector.statement.0,
+            vector.Statement.0,
             "parsed statement doesn't match original for {test_name}"
         );
 
         // Create NIZK with the session_id from the test vector
-        let nizk = Nizk::new(&vector.session_id.0, parsed_instance);
+        let nizk = Nizk::new(&vector.SessionId.0, parsed_instance);
 
-        // Verify that the computed IV matches the test vector IV
-        // Ensure the provided test vector proof verifies.
-        let verification_result = nizk.verify_batchable(&vector.proof_batchable.0);
-        assert!(
+        // Commitment_response format
+        {
+            // Verify that the computed IV matches the test vector IV
+            // Ensure the provided test vector proof verifies.
+            let verification_result = nizk.verify_batchable(&vector.BatchableProof.0);
+            assert!(
+                verification_result.is_ok(),
+                "Fiat-Shamir Schnorr proof from vectors did not verify for {test_name}: {verification_result:?}"
+            );
+
+            // Generate proof with the proof generation RNG
+            let mut proof_rng = TestDRNG::from_seed(PROOF_RNG_SEED);
+            let proof_batchable = nizk.prove_batchable(&witness, &mut proof_rng).unwrap();
+
+            // Verify the proof matches
+            assert_eq!(
+                proof_batchable, vector.BatchableProof.0,
+                "proof bytes for test vector {test_name} do not match"
+            );
+
+            // Verify the proof is valid
+            let verified = nizk.verify_batchable(&proof_batchable).is_ok();
+            assert!(
+                verified,
+                "Fiat-Shamir Schnorr proof verification failed for {test_name}"
+            );
+        }
+
+        // Challenge_response format
+        {
+            // Verify that the computed IV matches the test vector IV
+            // Ensure the provided test vector proof verifies.
+            let verification_result = nizk.verify_compact(&vector.Proof.0);
+            assert!(
             verification_result.is_ok(),
-            "Fiat-Shamir Schnorr proof from vectors did not verify for {test_name}: {verification_result:?}"
-        );
+                "Fiat-Shamir Schnorr proof from vectors did not verify for {test_name}: {verification_result:?}"
+            );
 
-        // Generate proof with the proof generation RNG
-        let proof_rng_seed = ["proof_generation_seed".as_bytes(), &vec![0u8; 21]].concat();
-        let mut proof_rng = Shake128PRNG::from_seed(proof_rng_seed.try_into().unwrap());
-        let proof_batchable = nizk.prove_batchable(&witness, &mut proof_rng).unwrap();
+            // Generate proof with the proof generation RNG
+            let mut proof_rng = TestDRNG::from_seed(PROOF_RNG_SEED);
+            let proof_compact = nizk.prove_compact(&witness, &mut proof_rng).unwrap();
 
-        // Verify the proof matches
-        assert_eq!(
-            proof_batchable, vector.proof_batchable.0,
-            "proof bytes for test vector {test_name} do not match"
-        );
+            // Verify the proof matches
+            assert_eq!(
+                proof_compact, vector.Proof.0,
+                "proof bytes for test vector {test_name} do not match"
+            );
 
-        // Verify the proof is valid
-        let verified = nizk.verify_batchable(&proof_batchable).is_ok();
-        assert!(
-            verified,
-            "Fiat-Shamir Schnorr proof verification failed for {test_name}"
-        );
+            // Verify the proof is valid
+            let verified = nizk.verify_compact(&proof_compact).is_ok();
+            assert!(
+                verified,
+                "Fiat-Shamir Schnorr proof verification failed for {test_name}"
+            );
+        }
     }
 }

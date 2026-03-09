@@ -1,22 +1,26 @@
 use rand_core::{Error, RngCore, SeedableRng};
-use sha3::{
-    digest::{ExtendableOutput, Update, XofReader},
-    Shake128,
-};
 
-pub struct Shake128PRNG(<Shake128 as ExtendableOutput>::Reader);
+use sigma_proofs::{DuplexSpongeInterface, ShakeDuplexSponge};
 
-impl SeedableRng for Shake128PRNG {
+pub struct TestDRNG {
+    sponge: ShakeDuplexSponge,
+    offset: usize,
+}
+
+impl SeedableRng for TestDRNG {
     type Seed = [u8; 32];
 
     fn from_seed(seed: Self::Seed) -> Self {
-        let mut shake = Shake128::default();
-        shake.update(&seed);
-        Self(shake.finalize_xof())
+        let iv_prefix = b"sigma-proofs/TestDRNG/SHAKE128";
+        let mut iv = [0u8; 64];
+        iv[..iv_prefix.len()].copy_from_slice(iv_prefix);
+        let mut sponge = ShakeDuplexSponge::new(iv);
+        sponge.absorb(&seed);
+        Self { sponge, offset: 0 }
     }
 }
 
-impl RngCore for Shake128PRNG {
+impl RngCore for TestDRNG {
     fn next_u32(&mut self) -> u32 {
         unimplemented!()
     }
@@ -26,11 +30,12 @@ impl RngCore for Shake128PRNG {
     }
 
     fn fill_bytes(&mut self, dst: &mut [u8]) {
-        self.0.read(dst)
+        let end = self.offset + dst.len();
+        dst.copy_from_slice(&self.sponge.squeeze(end)[self.offset..]);
+        self.offset = end;
     }
 
-    fn try_fill_bytes(&mut self, dst: &mut [u8]) -> Result<(), Error> {
-        self.fill_bytes(dst);
-        Ok(())
+    fn try_fill_bytes(&mut self, _dst: &mut [u8]) -> Result<(), Error> {
+        unimplemented!()
     }
 }
