@@ -11,7 +11,7 @@
 //! This struct is generic over:
 //! - `P`: the underlying Sigma protocol ([`SigmaProtocol`] trait).
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::codec::Codec;
 use crate::errors::Error;

@@ -4,14 +4,15 @@
 
 use core::array::from_fn;
 
+use alloc::vec::Vec;
 use ff::PrimeField;
 use group::Group;
 use num_bigint::BigUint;
 use num_traits::Num;
-use rand_core::RngCore;
+use rand_core::CryptoRngCore;
 use spongefish::NargDeserialize;
 
-pub fn random_scalars<G, const N: usize>(rng: &mut impl RngCore) -> [G::Scalar; N]
+pub fn random_scalars<G, const N: usize>(rng: &mut impl CryptoRngCore) -> [G::Scalar; N]
 where
     G: Group,
     G::Scalar: NargDeserialize,
@@ -19,7 +20,7 @@ where
     from_fn(|_| scalar_from_uniform_bytes::<G>(|u| rng.fill_bytes(u)))
 }
 
-pub fn random_scalars_vec<G>(rng: &mut impl RngCore, len: usize) -> Vec<G::Scalar>
+pub fn random_scalars_vec<G>(rng: &mut impl CryptoRngCore, len: usize) -> Vec<G::Scalar>
 where
     G: Group,
     G::Scalar: NargDeserialize,
@@ -36,7 +37,7 @@ where
 {
     const EXTRA_BYTES: usize = 16;
     let scalar_length = (<G::Scalar as PrimeField>::NUM_BITS as usize + 7) >> 3;
-    let mut uniform_bytes = vec![0u8; scalar_length + EXTRA_BYTES];
+    let mut uniform_bytes = alloc::vec![0u8; scalar_length + EXTRA_BYTES];
 
     fill(&mut uniform_bytes);
 
@@ -44,7 +45,10 @@ where
     let scalar = BigUint::from_bytes_be(&uniform_bytes);
     let reduced = scalar % order::<G::Scalar>();
     let reduced_bytes = reduced.to_bytes_be();
-    G::Scalar::deserialize_from_narg(&mut reduced_bytes.as_slice()).expect("invalid sampled scalar")
+    let padded = &mut uniform_bytes[..scalar_length];
+    padded.fill(0);
+    padded[scalar_length - reduced_bytes.len()..].copy_from_slice(&reduced_bytes);
+    G::Scalar::deserialize_from_narg(&mut padded.as_ref()).expect("invalid sampled scalar")
 }
 
 fn order<F: PrimeField>() -> BigUint {

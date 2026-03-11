@@ -1,5 +1,5 @@
 use group::{ff::Field, prime::PrimeGroup, Group};
-use rand_core::RngCore;
+use rand_core::CryptoRngCore;
 use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
 
 use sigma_proofs::{
@@ -7,7 +7,7 @@ use sigma_proofs::{
     rng::{random_scalars, random_scalars_vec},
 };
 
-pub(crate) fn random_elem<G>(rng: &mut impl RngCore) -> G
+pub(crate) fn random_elem<G>(rng: &mut impl CryptoRngCore) -> G
 where
     G: Group,
     G::Scalar: NargDeserialize,
@@ -23,7 +23,7 @@ type Return<G> = (CanonicalLinearRelation<G>, Vec<<G as Group>::Scalar>);
 
 /// LinearMap for knowledge of a discrete logarithm relative to a fixed basepoint.
 #[allow(non_snake_case)]
-pub fn discrete_logarithm<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn discrete_logarithm<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -49,7 +49,7 @@ where
 
 /// LinearMap for knowledge of a shifted discrete logarithm relative to a fixed basepoint.
 #[allow(non_snake_case)]
-pub fn shifted_dlog<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn shifted_dlog<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -74,7 +74,7 @@ where
 
 /// LinearMap for knowledge of a discrete logarithm equality between two pairs.
 #[allow(non_snake_case)]
-pub fn dleq<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn dleq<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -104,7 +104,11 @@ where
 
 /// LinearMap for knowledge of a shifted dleq.
 #[allow(non_snake_case)]
-pub fn shifted_dleq<G: PrimeGroup>(rng: &mut impl RngCore) -> Return<G> {
+pub fn shifted_dleq<G>(rng: &mut impl CryptoRngCore) -> Return<G>
+where
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize,
+    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+{
     let [x] = random_scalars::<G, _>(rng);
     let H = random_elem(rng);
     let mut relation = LinearRelation::new();
@@ -130,7 +134,7 @@ pub fn shifted_dleq<G: PrimeGroup>(rng: &mut impl RngCore) -> Return<G> {
 
 /// LinearMap for knowledge of an opening to a Pedersen commitment.
 #[allow(non_snake_case)]
-pub fn pedersen_commitment<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn pedersen_commitment<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -157,7 +161,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn twisted_pedersen_commitment<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn twisted_pedersen_commitment<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -186,7 +190,7 @@ where
 /// Test that a Pedersen commitment is in the given range.
 #[allow(non_snake_case)]
 pub fn range_instance_generation<G>(
-    rng: &mut impl RngCore,
+    rng: &mut impl CryptoRngCore,
     input: u64,
     range: std::ops::Range<u64>,
 ) -> Return<G>
@@ -285,7 +289,7 @@ where
 
 /// Test that a Pedersen commitment is in `[0, bound)` for any `bound >= 0`.
 #[allow(non_snake_case)]
-pub fn test_range<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn test_range<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -296,7 +300,7 @@ where
 /// LinearMap for knowledge of an opening for use in a BBS commitment.
 // BBS message length is 3
 #[allow(non_snake_case)]
-pub fn bbs_blind_commitment<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn bbs_blind_commitment<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -347,7 +351,7 @@ where
 
 /// LinearMap for the user's specific relation: A * 1 + gen__disj1_x_r * B
 #[allow(non_snake_case)]
-pub fn weird_linear_combination<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn weird_linear_combination<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -378,7 +382,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn simple_subtractions<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn simple_subtractions<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -400,7 +404,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn subtractions_with_shift<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn subtractions_with_shift<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -422,7 +426,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn cmz_wallet_spend_relation<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn cmz_wallet_spend_relation<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -470,7 +474,11 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn nested_affine_relation<G: PrimeGroup>(rng: &mut impl RngCore) -> Return<G> {
+pub fn nested_affine_relation<G>(rng: &mut impl CryptoRngCore) -> Return<G>
+where
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize,
+    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+{
     let mut instance = LinearRelation::<G>::new();
     let var_r = instance.allocate_scalar();
     let var_A = instance.allocate_element();
@@ -493,7 +501,7 @@ pub fn nested_affine_relation<G: PrimeGroup>(rng: &mut impl RngCore) -> Return<G
 }
 
 #[allow(non_snake_case)]
-pub fn pedersen_commitment_equality<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn pedersen_commitment_equality<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
@@ -516,7 +524,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn elgamal_subtraction<G>(rng: &mut impl RngCore) -> Return<G>
+pub fn elgamal_subtraction<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,

@@ -3,6 +3,7 @@
 use crate::duplex_sponge::DuplexSpongeInterface;
 use crate::duplex_sponge::{keccak::KeccakDuplexSponge, shake::ShakeDuplexSponge};
 use crate::rng::scalar_from_uniform_bytes;
+use alloc::vec;
 use group::prime::PrimeGroup;
 use spongefish::NargDeserialize;
 

@@ -26,8 +26,8 @@ use std::{
 };
 
 use curve25519_dalek::{RistrettoPoint as G, Scalar};
-use rand::RngCore;
 use rand_chacha::{rand_core::SeedableRng, ChaCha12Rng};
+use rand_core::{CryptoRng, CryptoRngCore, RngCore};
 use serial_test::serial;
 
 use sigma_proofs::{
@@ -103,7 +103,7 @@ fn baseline() {
 }
 
 fn wide_relation<const WIDTH: usize>(
-    rng: &mut impl RngCore,
+    rng: &mut impl CryptoRngCore,
 ) -> (CanonicalLinearRelation<G>, Vec<Scalar>) {
     let mut rel = LinearRelation::<G>::new();
     let constraint: Sum<_> = (0..WIDTH)
@@ -169,6 +169,8 @@ where
 /// fixed value for scalars. Used with [relations], this generates statements with fixed-value
 /// witnesses.
 struct FixedRng;
+
+impl CryptoRng for FixedRng {}
 
 impl RngCore for FixedRng {
     fn next_u32(&mut self) -> u32 {
