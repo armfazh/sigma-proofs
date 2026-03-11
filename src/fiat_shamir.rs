@@ -15,10 +15,8 @@ use std::marker::PhantomData;
 
 use crate::codec::Codec;
 use crate::errors::Error;
-use crate::group::serialization::deserialize_messages;
-use crate::group::serialization::serialize_messages;
-use crate::traits::SigmaProtocol;
-use crate::traits::SigmaProtocolSimulator;
+use crate::group::serialization::{deserialize_messages, serialize_messages};
+use crate::traits::{SigmaProtocol, SigmaProtocolSimulator};
 use alloc::vec::Vec;
 use ff::PrimeField;
 use rand_core::RngCore;

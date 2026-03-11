@@ -7,7 +7,11 @@ use sigma_proofs::{
     rng::{random_scalars, random_scalars_vec},
 };
 
-pub(crate) fn random_elem<G: Group>(rng: &mut impl RngCore) -> G {
+pub(crate) fn random_elem<G>(rng: &mut impl RngCore) -> G
+where
+    G: Group,
+    G::Scalar: NargDeserialize,
+{
     // Test helper only: this samples elements as x*G where x is known, so the discrete
     // logarithm of returned elements is known. Do not use this outside tests; it is insecure
     // for most concrete applications.

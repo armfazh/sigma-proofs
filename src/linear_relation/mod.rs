@@ -349,7 +349,7 @@ pub struct LinearRelation<G: PrimeGroup> {
     pub image: Vec<GroupVar<G>>,
 }
 
-impl<G: PrimeGroup> LinearRelation<G>
+impl<G> LinearRelation<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize,
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,

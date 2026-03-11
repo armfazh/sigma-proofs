@@ -4,6 +4,7 @@ use crate::duplex_sponge::DuplexSpongeInterface;
 use crate::duplex_sponge::{keccak::KeccakDuplexSponge, shake::ShakeDuplexSponge};
 use crate::rng::scalar_from_uniform_bytes;
 use group::prime::PrimeGroup;
+use spongefish::NargDeserialize;
 
 /// A trait defining the behavior of a domain-separated codec hashing, which is typically used for [`crate::traits::SigmaProtocol`]s.
 ///
@@ -50,6 +51,7 @@ where
 impl<G, H> Codec for ByteSchnorrCodec<G, H>
 where
     G: PrimeGroup,
+    G::Scalar: NargDeserialize,
     H: DuplexSpongeInterface,
 {
     type Challenge = G::Scalar;
