@@ -1,4 +1,4 @@
-use rand_core::{Error, RngCore, SeedableRng};
+use rand_core::{CryptoRng, Error, RngCore, SeedableRng};
 
 use sigma_proofs::{DuplexSpongeInterface, ShakeDuplexSponge};
 
@@ -19,6 +19,8 @@ impl SeedableRng for TestDRNG {
         Self { sponge, offset: 0 }
     }
 }
+
+impl CryptoRng for TestDRNG {}
 
 impl RngCore for TestDRNG {
     fn next_u32(&mut self) -> u32 {

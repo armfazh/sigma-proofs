@@ -13,6 +13,7 @@ use crate::{LinearRelation, Nizk};
 use alloc::vec::Vec;
 
 use group::prime::PrimeGroup;
+use rand_core::CryptoRngCore;
 use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
 
 impl<G> SigmaProtocol for CanonicalLinearRelation<G>
@@ -44,7 +45,7 @@ where
     fn prover_commit(
         &self,
         witness: &Self::Witness,
-        rng: &mut impl RngCore,
+        rng: &mut impl CryptoRngCore,
     ) -> Result<(Vec<Self::Commitment>, Self::ProverState)> {
         if witness.len() < self.num_scalars {
             return Err(Error::InvalidInstanceWitnessPair);
@@ -245,7 +246,7 @@ where
     ///
     /// # Returns
     /// - A commitment and response forming a valid proof for the given challenge.
-    fn simulate_response(&self, rng: &mut impl RngCore) -> Vec<Self::Response> {
+    fn simulate_response(&self, rng: &mut impl CryptoRngCore) -> Vec<Self::Response> {
         random_scalars_vec::<G>(rng, self.num_scalars)
     }
 
@@ -256,7 +257,7 @@ where
     ///
     /// # Returns
     /// - A tuple `(commitment, challenge, response)` forming a valid proof.
-    fn simulate_transcript(&self, rng: &mut impl RngCore) -> Result<Transcript<Self>> {
+    fn simulate_transcript(&self, rng: &mut impl CryptoRngCore) -> Result<Transcript<Self>> {
         let [challenge] = random_scalars::<G, _>(rng);
         let response = self.simulate_response(rng);
         let commitment = self.simulate_commitment(&challenge, &response)?;

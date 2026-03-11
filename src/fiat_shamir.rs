@@ -19,7 +19,7 @@ use crate::group::serialization::{deserialize_messages, serialize_messages};
 use crate::traits::{SigmaProtocol, SigmaProtocolSimulator};
 use alloc::vec::Vec;
 use ff::PrimeField;
-use rand_core::RngCore;
+use rand_core::CryptoRngCore;
 use spongefish::{Encoding, NargDeserialize, NargSerialize};
 
 /// A Fiat-Shamir transformation of a [`SigmaProtocol`] into a non-interactive proof.
@@ -84,7 +84,7 @@ where
     pub fn prove_batchable(
         &self,
         witness: &P::Witness,
-        rng: &mut impl RngCore,
+        rng: &mut impl CryptoRngCore,
     ) -> Result<Vec<u8>, Error> {
         let protocol_id = self.interactive_proof.protocol_identifier();
         let instance_label = self.interactive_proof.instance_label();
@@ -156,7 +156,7 @@ where
     pub fn prove_compact(
         &self,
         witness: &P::Witness,
-        rng: &mut impl RngCore,
+        rng: &mut impl CryptoRngCore,
     ) -> Result<Vec<u8>, Error> {
         let protocol_id = self.interactive_proof.protocol_identifier();
         let instance_label = self.interactive_proof.instance_label();
