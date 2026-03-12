@@ -11,9 +11,9 @@ impl SeedableRng for TestDRNG {
     type Seed = [u8; 32];
 
     fn from_seed(seed: Self::Seed) -> Self {
-        let iv_prefix = b"sigma-proofs/TestDRNG/SHAKE128";
-        let mut iv = [0u8; 64];
-        iv[..iv_prefix.len()].copy_from_slice(iv_prefix);
+        const IV_PREFIX: [u8; 30] = *b"sigma-proofs/TestDRNG/SHAKE128";
+        let mut iv = [0; 64];
+        iv[..IV_PREFIX.len()].copy_from_slice(&IV_PREFIX);
         let mut sponge = ShakeDuplexSponge::new(iv);
         sponge.absorb(&seed);
         Self { sponge, offset: 0 }

@@ -1,11 +1,14 @@
 //! Encoding and decoding utilities for Fiat-Shamir and group operations.
 
-use crate::duplex_sponge::DuplexSpongeInterface;
-use crate::duplex_sponge::{keccak::KeccakDuplexSponge, shake::ShakeDuplexSponge};
-use crate::rng::scalar_from_uniform_bytes;
-use alloc::vec;
-use group::prime::PrimeGroup;
+use core::marker::PhantomData;
+
+use group::Group;
 use spongefish::NargDeserialize;
+
+use crate::{
+    duplex_sponge::{keccak::KeccakDuplexSponge, shake::ShakeDuplexSponge, DuplexSpongeInterface},
+    rng::scalar_from_uniform_bytes,
+};
 
 /// A trait defining the behavior of a domain-separated codec hashing, which is typically used for [`crate::traits::SigmaProtocol`]s.
 ///
@@ -42,36 +45,45 @@ pub trait Codec {
 #[derive(Clone)]
 pub struct ByteSchnorrCodec<G, H>
 where
-    G: PrimeGroup,
+    G: Group,
     H: DuplexSpongeInterface,
 {
     sponge: H,
-    _marker: core::marker::PhantomData<G>,
+    _marker: PhantomData<G>,
+}
+
+pub(crate) const fn pad_zeros<const N: usize>(prefix: &[u8]) -> [u8; N] {
+    assert!(prefix.len() <= N, "prefix is too long");
+    let mut padded = [0; N];
+    let mut i = 0;
+    while i < prefix.len() {
+        padded[i] = prefix[i];
+        i += 1;
+    }
+    padded
 }
 
 impl<G, H> Codec for ByteSchnorrCodec<G, H>
 where
-    G: PrimeGroup,
+    G: Group,
     G::Scalar: NargDeserialize,
     H: DuplexSpongeInterface,
 {
     type Challenge = G::Scalar;
 
     fn new(protocol_id: &[u8; 64], session: &[u8], instance_label: &[u8]) -> Self {
-        let iv_prefix = b"fiat-shamir/session-id";
-        let mut iv = [0u8; 64];
-        iv[..iv_prefix.len()].copy_from_slice(iv_prefix);
-
+        const PREFIX: &[u8] = b"fiat-shamir/session-id";
+        let iv = pad_zeros(PREFIX);
         let mut session_hash_state = H::new(iv);
         session_hash_state.absorb(session);
-        let session_id = [vec![0u8; 32], session_hash_state.squeeze(32)].concat();
 
         let mut sponge = H::new(*protocol_id);
-        sponge.absorb(&session_id);
+        sponge.absorb(&[0; 32]);
+        sponge.absorb(&session_hash_state.squeeze(32));
         sponge.absorb(instance_label);
         Self {
             sponge,
-            _marker: core::marker::PhantomData,
+            _marker: PhantomData,
         }
     }
 
@@ -91,4 +103,4 @@ where
 pub type KeccakByteSchnorrCodec<G> = ByteSchnorrCodec<G, KeccakDuplexSponge>;
 
 /// Type alias for a SHAKE-based ByteSchnorrCodec.
-pub type Shake128DuplexSponge<G> = ByteSchnorrCodec<G, ShakeDuplexSponge>;
+pub type Shake128ByteSchnorrCodec<G> = ByteSchnorrCodec<G, ShakeDuplexSponge>;

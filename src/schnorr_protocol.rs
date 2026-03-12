@@ -4,7 +4,7 @@
 //! a Sigma protocol proving different types of discrete logarithm relations (eg. Schnorr, Pedersen's commitments)
 //! through a group morphism abstraction (see [Maurer09](https://crypto-test.ethz.ch/publications/files/Maurer09.pdf)).
 
-use crate::codec::Codec;
+use crate::codec::{pad_zeros, Shake128ByteSchnorrCodec};
 use crate::errors::{Error, Result};
 use crate::linear_relation::CanonicalLinearRelation;
 use crate::rng::{random_scalars, random_scalars_vec};
@@ -53,7 +53,7 @@ where
 
         let nonces = random_scalars_vec::<G>(rng, self.num_scalars);
         let commitment = self.evaluate(&nonces);
-        let prover_state = (nonces.to_vec(), witness.to_vec());
+        let prover_state = (nonces, witness.clone());
         Ok((commitment, prover_state))
     }
 
@@ -132,9 +132,7 @@ where
     }
 
     fn protocol_identifier(&self) -> [u8; 64] {
-        let mut id = [0u8; 64];
-        id[..self.protocol_id.len()].copy_from_slice(&self.protocol_id);
-        id
+        pad_zeros(&self.protocol_id)
     }
 }
 
@@ -144,7 +142,8 @@ where
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
 {
     /// Convert this LinearRelation into a non-interactive zero-knowledge protocol
-    /// using the ShakeCodec and a specified context/domain separator.
+    /// using the Shake128DuplexSponge codec and a specified context/domain separator
+    /// to invoke the Fiat-Shamir transform.
     ///
     /// # Parameters
     /// - `context`: Domain separator bytes for the Fiat-Shamir transform
@@ -154,7 +153,7 @@ where
     ///
     /// # Example
     /// ```
-    /// # use sigma_proofs::{LinearRelation, Nizk, codec::Shake128DuplexSponge};
+    /// # use sigma_proofs::{LinearRelation, Nizk};
     /// # use curve25519_dalek::RistrettoPoint as G;
     /// # use curve25519_dalek::scalar::Scalar;
     /// # use rand::rngs::OsRng;
@@ -170,14 +169,14 @@ where
     /// relation.compute_image(&[x]).unwrap();
     ///
     /// // Convert to NIZK with custom context
-    /// let nizk = relation.into_nizk::<Shake128DuplexSponge<G>>(b"my-protocol-v1").unwrap();
+    /// let nizk = relation.into_nizk(b"my-protocol-v1").unwrap();
     /// let proof = nizk.prove_batchable(&vec![x], &mut OsRng).unwrap();
     /// assert!(nizk.verify_batchable(&proof).is_ok());
     /// ```
-    pub fn into_nizk<C: Codec<Challenge = <Self as SigmaProtocol>::Challenge>>(
+    pub fn into_nizk(
         self,
         session_identifier: &[u8],
-    ) -> Result<Nizk<CanonicalLinearRelation<G>, C>> {
+    ) -> Result<Nizk<CanonicalLinearRelation<G>, Shake128ByteSchnorrCodec<G>>> {
         Ok(Nizk::new(session_identifier, self))
     }
 }
@@ -188,7 +187,8 @@ where
     G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
 {
     /// Convert this LinearRelation into a non-interactive zero-knowledge protocol
-    /// using the Fiat-Shamir transform.
+    /// using the Shake128DuplexSponge codec and a specified context/domain separator
+    /// to invoke the Fiat-Shamir transform.
     ///
     /// This is a convenience method that combines `.canonical()` and `.into_nizk()`.
     ///
@@ -200,7 +200,7 @@ where
     ///
     /// # Example
     /// ```
-    /// # use sigma_proofs::{LinearRelation, Nizk, codec::Shake128DuplexSponge};
+    /// # use sigma_proofs::{LinearRelation, Nizk};
     /// # use curve25519_dalek::RistrettoPoint as G;
     /// # use curve25519_dalek::scalar::Scalar;
     /// # use rand::rngs::OsRng;
@@ -216,21 +216,21 @@ where
     /// relation.compute_image(&[x]).unwrap();
     ///
     /// // Convert to NIZK directly
-    /// let nizk = relation.into_nizk::<Shake128DuplexSponge<G>>(b"my-protocol-v1").unwrap();
+    /// let nizk = relation.into_nizk(b"my-protocol-v1").unwrap();
     /// let proof = nizk.prove_batchable(&vec![x], &mut OsRng).unwrap();
     /// assert!(nizk.verify_batchable(&proof).is_ok());
     /// ```
-    pub fn into_nizk<C: Codec<Challenge = G::Scalar>>(
+    pub fn into_nizk(
         self,
         session_identifier: &[u8],
-    ) -> crate::errors::Result<crate::Nizk<CanonicalLinearRelation<G>, C>>
+    ) -> crate::errors::Result<crate::Nizk<CanonicalLinearRelation<G>, Shake128ByteSchnorrCodec<G>>>
     where
         G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize,
         G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
     {
         self.canonical()
             .map_err(|_| crate::errors::Error::InvalidInstanceWitnessPair)?
-            .into_nizk::<C>(session_identifier)
+            .into_nizk(session_identifier)
     }
 }
 impl<G> SigmaProtocolSimulator for CanonicalLinearRelation<G>
@@ -289,7 +289,7 @@ where
             .iter()
             .zip(self.image_elements())
             .map(|(res, img)| *res - img * challenge)
-            .collect::<Vec<_>>();
+            .collect();
         Ok(commitment)
     }
 }

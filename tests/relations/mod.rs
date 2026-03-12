@@ -1,6 +1,6 @@
 use group::{ff::Field, prime::PrimeGroup, Group};
 use rand_core::CryptoRngCore;
-use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
+use spongefish::{Codec, Encoding, NargDeserialize, NargSerialize};
 
 use sigma_proofs::{
     linear_relation::{CanonicalLinearRelation, LinearRelation, Sum},
@@ -25,8 +25,8 @@ type Return<G> = (CanonicalLinearRelation<G>, Vec<<G as Group>::Scalar>);
 #[allow(non_snake_case)]
 pub fn discrete_logarithm<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let [x] = random_scalars::<G, _>(rng);
     let mut relation = LinearRelation::new();
@@ -51,8 +51,8 @@ where
 #[allow(non_snake_case)]
 pub fn shifted_dlog<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let [x] = random_scalars::<G, _>(rng);
     let mut relation = LinearRelation::new();
@@ -76,8 +76,8 @@ where
 #[allow(non_snake_case)]
 pub fn dleq<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let [x] = random_scalars::<G, _>(rng);
     let H = random_elem(rng);
@@ -106,8 +106,8 @@ where
 #[allow(non_snake_case)]
 pub fn shifted_dleq<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let [x] = random_scalars::<G, _>(rng);
     let H = random_elem(rng);
@@ -136,11 +136,10 @@ where
 #[allow(non_snake_case)]
 pub fn pedersen_commitment<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
-    let [x] = random_scalars::<G, _>(rng);
-    let [r] = random_scalars::<G, _>(rng);
+    let [x, r] = random_scalars::<G, _>(rng);
     let H = random_elem(rng);
     let mut relation = LinearRelation::new();
 
@@ -163,11 +162,10 @@ where
 #[allow(non_snake_case)]
 pub fn twisted_pedersen_commitment<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
-    let [x] = random_scalars::<G, _>(rng);
-    let [r] = random_scalars::<G, _>(rng);
+    let [x, r] = random_scalars::<G, _>(rng);
     let H = random_elem(rng);
     let mut relation = LinearRelation::new();
 
@@ -195,8 +193,8 @@ pub fn range_instance_generation<G>(
     range: std::ops::Range<u64>,
 ) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let G = G::generator();
     let H = random_elem(rng);
@@ -291,8 +289,8 @@ where
 #[allow(non_snake_case)]
 pub fn test_range<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     range_instance_generation(rng, 822, 0..1337)
 }
@@ -302,8 +300,8 @@ where
 #[allow(non_snake_case)]
 pub fn bbs_blind_commitment<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let [Q_2, J_1, J_2, J_3] = [
         random_elem(rng),
@@ -353,8 +351,8 @@ where
 #[allow(non_snake_case)]
 pub fn weird_linear_combination<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let B = random_elem(rng);
     let [gen__disj1_x_r] = random_scalars::<G, _>(rng);
@@ -384,8 +382,8 @@ where
 #[allow(non_snake_case)]
 pub fn simple_subtractions<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let [x] = random_scalars::<G, _>(rng);
     let B = random_elem(rng);
@@ -406,8 +404,8 @@ where
 #[allow(non_snake_case)]
 pub fn subtractions_with_shift<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let B = G::generator();
     let [x] = random_scalars::<G, _>(rng);
@@ -428,17 +426,15 @@ where
 #[allow(non_snake_case)]
 pub fn cmz_wallet_spend_relation<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     // Simulate the wallet spend relation from cmz
     let P_W = random_elem(rng);
     let A = random_elem(rng);
 
     // Secret values
-    let [n_balance] = random_scalars::<G, _>(rng);
-    let [i_price] = random_scalars::<G, _>(rng);
-    let [z_w_balance] = random_scalars::<G, _>(rng);
+    let [n_balance, i_price, z_w_balance] = random_scalars::<G, _>(rng);
     let fee = G::Scalar::from(5u64);
 
     // W.balance = N.balance + I.price + fee
@@ -476,8 +472,8 @@ where
 #[allow(non_snake_case)]
 pub fn nested_affine_relation<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let mut instance = LinearRelation::<G>::new();
     let var_r = instance.allocate_scalar();
@@ -503,8 +499,8 @@ where
 #[allow(non_snake_case)]
 pub fn pedersen_commitment_equality<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let mut instance = LinearRelation::new();
 
@@ -526,8 +522,8 @@ where
 #[allow(non_snake_case)]
 pub fn elgamal_subtraction<G>(rng: &mut impl CryptoRngCore) -> Return<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     let mut instance = LinearRelation::new();
     let [dk, a, r] = instance.allocate_scalars();

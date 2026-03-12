@@ -1,6 +1,6 @@
 use ff::Field;
 
-use sigma_proofs::codec::Shake128DuplexSponge;
+use sigma_proofs::codec::Shake128ByteSchnorrCodec;
 use sigma_proofs::linear_relation::{CanonicalLinearRelation, LinearRelation};
 use sigma_proofs::Nizk;
 
@@ -46,9 +46,7 @@ fn test_cmz_wallet_with_fee() {
         .unwrap();
 
     // Try to convert to CanonicalLinearRelation - this should fail
-    let nizk = relation
-        .into_nizk::<Shake128DuplexSponge<G>>(b"session_identifier")
-        .unwrap();
+    let nizk = relation.into_nizk(b"session_identifier").unwrap();
     let result = nizk.prove_batchable(&vec![n_balance, i_price, z_w_balance], &mut rng);
     assert!(result.is_ok());
     let proof = result.unwrap();
@@ -87,7 +85,7 @@ fn test_relations() {
         let domain_sep = format!("test-fiat-shamir-{relation_name}")
             .as_bytes()
             .to_vec();
-        let nizk = Nizk::<CanonicalLinearRelation<G>, Shake128DuplexSponge<G>>::new(
+        let nizk = Nizk::<CanonicalLinearRelation<G>, Shake128ByteSchnorrCodec<G>>::new(
             &domain_sep,
             canonical_relation,
         );

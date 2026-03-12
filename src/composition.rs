@@ -30,7 +30,7 @@ use spongefish::{
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 use crate::{
-    codec::Codec,
+    codec::Shake128ByteSchnorrCodec,
     errors::{Error, InvalidInstance},
     fiat_shamir::Nizk,
     linear_relation::{CanonicalLinearRelation, LinearRelation},
@@ -1706,7 +1706,7 @@ where
         Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]> + ConditionallySelectable,
 {
     /// Convert this Protocol into a non-interactive zero-knowledge proof
-    /// using the Shake128DuplexSponge codec and a specified session identifier.
+    /// using the Shake128ByteSchnorrCodec codec and a specified session identifier.
     ///
     /// This method provides a convenient way to create a NIZK from a Protocol
     /// without exposing the specific codec type to the API caller.
@@ -1716,10 +1716,10 @@ where
     ///
     /// # Returns
     /// A `Nizk` instance ready for proving and verification
-    pub fn into_nizk<C: Codec<Challenge = <Self as SigmaProtocol>::Challenge>>(
+    pub fn into_nizk(
         self,
         session_identifier: &[u8],
-    ) -> Nizk<ComposedRelation<G>, C> {
+    ) -> Nizk<ComposedRelation<G>, Shake128ByteSchnorrCodec<G>> {
         Nizk::new(session_identifier, self)
     }
 }

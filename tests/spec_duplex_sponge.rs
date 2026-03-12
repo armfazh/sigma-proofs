@@ -44,7 +44,7 @@ fn run_test_vector(name: &str, test_vector: &TestVector) -> Result<(), Failed> {
     let mut sponge: Box<dyn DuplexSpongeInterface> = match test_vector.duplex_sponge.as_str() {
         "Keccak-f[1600] overwrite mode" => Box::new(KeccakDuplexSponge::new(iv_array)),
         "SHAKE128" => Box::new(ShakeDuplexSponge::new(iv_array)),
-        _ => panic!("Unknown hash function: {}", test_vector.duplex_sponge),
+        _ => panic!("Unknown sponge function: {}", test_vector.duplex_sponge),
     };
     let mut final_output = Vec::new();
 

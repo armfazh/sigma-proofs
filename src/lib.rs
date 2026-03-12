@@ -19,7 +19,6 @@
 //! # use curve25519_dalek::ristretto::RistrettoPoint;
 //! # use curve25519_dalek::scalar::Scalar;
 //! # use group::Group;
-//! # use sigma_proofs::codec::Shake128DuplexSponge;
 //! let mut instance = sigma_proofs::LinearRelation::new();
 //! let mut rng = rand::thread_rng();
 //!
@@ -35,7 +34,7 @@
 //! instance.compute_image(&witness);
 //!
 //! // Create a non-interactive argument for the instance.
-//! let nizk = instance.into_nizk::<Shake128DuplexSponge<RistrettoPoint>>(b"your session identifier").unwrap();
+//! let nizk = instance.into_nizk(b"your session identifier").unwrap();
 //! let narg_string: Vec<u8> = nizk.prove_batchable(&witness, &mut rng).unwrap();
 //! // Print the narg string.
 //! println!("{}", hex::encode(narg_string));

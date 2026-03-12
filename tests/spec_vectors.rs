@@ -1,13 +1,13 @@
 use bls12_381::G1Projective as BLS12381_Group;
 use group::prime::PrimeGroup;
 use p256::ProjectivePoint as P256_Group;
-
 use rand::SeedableRng;
-use sigma_proofs::{codec::Shake128DuplexSponge, linear_relation::CanonicalLinearRelation, Nizk};
+use spongefish::{Codec, Encoding, NargDeserialize, NargSerialize};
+
+use sigma_proofs::linear_relation::CanonicalLinearRelation;
 
 mod spec;
 use spec::{rng::TestDRNG, vectors::TestVector};
-use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
 
 #[test]
 fn test_spec_testvectors_bls12381() {
@@ -24,7 +24,7 @@ fn test_spec_testvectors_p256() {
 fn testvectors<G>(vectors_json: &str)
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G::Scalar: Codec,
 {
     const PROOF_RNG_SEED: [u8; 32] = *b"proof_generation_seed\0\0\0\0\0\0\0\0\0\0\0";
 
@@ -33,12 +33,15 @@ where
         .unwrap();
 
     for vector in test_vectors {
+        let mut proof_rng = TestDRNG::from_seed(PROOF_RNG_SEED);
         let test_name = vector.Protocol;
         // Parse the statement from the test vector
         let mut parsed_instance = CanonicalLinearRelation::<G>::from_label(&vector.Statement.0)
             .expect("Failed to parse statement");
 
+        // Assign protocol identifier
         parsed_instance.protocol_id = vector.Ciphersuite.as_bytes().to_vec();
+
         // Decode the witness from the test vector
         let mut cursor = vector.Witness.0.as_slice();
         let witness: Vec<_> = (0..parsed_instance.num_scalars)
@@ -47,7 +50,6 @@ where
                     .expect("Failed to deserialize witness")
             })
             .collect();
-
         assert_eq!(
             witness.len(),
             parsed_instance.num_scalars,
@@ -62,8 +64,9 @@ where
         );
 
         // Create NIZK with the session_id from the test vector
-        let nizk = Nizk::<_, Shake128DuplexSponge<G>>::new(&vector.SessionId.0, parsed_instance);
-        let mut proof_rng = TestDRNG::from_seed(PROOF_RNG_SEED);
+        let nizk = parsed_instance
+            .into_nizk(&vector.SessionId.0)
+            .expect("nizk failed");
 
         // Commitment_response format
         {
@@ -94,7 +97,6 @@ where
 
         // Challenge_response format
         {
-            // Verify that the computed IV matches the test vector IV
             // Ensure the provided test vector proof verifies.
             let verification_result = nizk.verify_compact(&vector.Proof.0);
             assert!(
