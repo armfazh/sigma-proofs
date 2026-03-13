@@ -62,6 +62,37 @@ where
         }
     }
 
+    /// Create a new canonical linear relation from an arbitrary linear relation.
+    ///
+    /// It is used to build a canonical linear relation directly from a linear relation.
+    /// No optimizations and checks are performed so to be compliant with sigma proofs spec.
+    pub fn new_from_lr(protocol_id: &[u8], statement: LinearRelation<G>) -> Self {
+        let linear_combinations = statement
+            .linear_map
+            .linear_combinations
+            .iter()
+            .map(|lc| {
+                lc.0.iter()
+                    .filter_map(|w| {
+                        if let ScalarTerm::Var(scalar_var) = w.term.scalar {
+                            Some((scalar_var, w.term.elem))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+
+        Self {
+            image: statement.image,
+            linear_combinations,
+            group_elements: statement.linear_map.group_elements,
+            num_scalars: statement.linear_map.num_scalars,
+            protocol_id: protocol_id.to_vec(),
+        }
+    }
+
     /// Evaluate the canonical linear relation with the provided scalars
     ///
     /// This returns a list of image points produced by evaluating each linear combination in the
