@@ -9,7 +9,7 @@ pub struct Hex(#[serde_as(as = "hex::Hex")] pub Vec<u8>);
 #[allow(non_snake_case)]
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct TestVector {
-    pub Protocol: String,
+    pub Relation: String,
     pub Ciphersuite: String,
     pub SessionId: Hex,
     pub Statement: Hex,

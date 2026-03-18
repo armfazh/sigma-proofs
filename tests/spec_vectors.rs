@@ -34,7 +34,7 @@ where
 
     for vector in test_vectors {
         let mut proof_rng = TestDRNG::from_seed(PROOF_RNG_SEED);
-        let test_name = vector.Protocol;
+        let test_name = vector.Relation;
         // Parse the statement from the test vector
         let mut parsed_instance = CanonicalLinearRelation::<G>::from_label(&vector.Statement.0)
             .expect("Failed to parse statement");
