@@ -15,8 +15,11 @@ use core::marker::PhantomData;
 
 use crate::codec::Codec;
 use crate::errors::Error;
-use crate::group::serialization::{deserialize_messages, serialize_messages};
-use crate::traits::{SigmaProtocol, SigmaProtocolSimulator};
+use crate::group::serialization::{
+    deserialize_messages, serialize_messages, serialize_messages_into,
+};
+use crate::traits::SigmaProtocol;
+use crate::traits::SigmaProtocolSimulator;
 use alloc::vec::Vec;
 use ff::PrimeField;
 use rand_core::CryptoRngCore;
@@ -97,7 +100,7 @@ where
             .interactive_proof
             .prover_response(ip_state, &challenge)?;
         let mut proof = commitment_bytes;
-        response.serialize_into_narg(&mut proof);
+        serialize_messages_into(&response, &mut proof);
         Ok(proof)
     }
 
@@ -121,9 +124,9 @@ where
         let response_len = self.interactive_proof.response_len();
         let mut cursor = narg_string;
         let commitment = deserialize_messages(commitment_len, &mut cursor)?;
-        let commitment_bytes = serialize_messages(&commitment);
+        let commitment_bytes_len = narg_string.len().saturating_sub(cursor.len());
         let mut codec = C::new(&protocol_id, &self.session_id, instance_label.as_ref());
-        codec.prover_message(&commitment_bytes);
+        codec.prover_message(&narg_string[..commitment_bytes_len]);
         let challenge = codec.verifier_challenge();
         let response = deserialize_messages(response_len, &mut cursor)?;
         if !cursor.is_empty() {
@@ -172,7 +175,7 @@ where
         // Serialize the compact proof string.
         let mut proof = Vec::new();
         challenge.serialize_into_narg(&mut proof);
-        response.serialize_into_narg(&mut proof);
+        serialize_messages_into(&response, &mut proof);
         Ok(proof)
     }
 

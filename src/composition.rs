@@ -29,9 +29,11 @@ use spongefish::{
 };
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
+use crate::errors::InvalidInstance;
+use crate::MultiScalarMul;
 use crate::{
     codec::Shake128ByteSchnorrCodec,
-    errors::{Error, InvalidInstance},
+    errors::Error,
     fiat_shamir::Nizk,
     linear_relation::{CanonicalLinearRelation, LinearRelation},
     rng::{random_scalars, random_scalars_vec},

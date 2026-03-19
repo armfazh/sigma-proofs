@@ -21,7 +21,7 @@ exclude = [".gitignore"]
 [features]
 # Include commonly used curved in default features.
 # Increases the default compile times, but makes the crate just-work for most users.
-default = ["std", "bls12_381", "curve25519-dalek", "k256"]
+default = ["std", "bls12_381", "curve25519-dalek", "k256", "p256"]
 std = [
     "thiserror",
     "rand",
@@ -76,11 +76,7 @@ serde_json = "1.0.140"
 serde_with = { version = "3.16.1", features = ["hex"] }
 serial_test = "3.3.1"
 sha2 = "0.10"
-spongefish = { git = "https://github.com/arkworks-rs/spongefish", features = ["curve25519-dalek", "bls12_381", "p256", "derive", "keccak", "std"], rev = "4b3a189ceb3f5bdc6848c1ce8ab64c948bb867d1" }
-
-# Include criterion without rayon when compiling for the WASM WASIv1 environment, and with rayon otherwise.
-[target.'cfg(not(all(target_os = "wasi", target_env = "p1")))'.dev-dependencies]
-criterion = { version = "0.8", features = ["html_reports"] }
+spongefish = { git = "https://github.com/arkworks-rs/spongefish", features = ["curve25519-dalek", "p256", "bls12_381", "derive", "keccak", "std"], rev = "4b3a189ceb3f5bdc6848c1ce8ab64c948bb867d1" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 core_affinity2 = "0.15.4"

@@ -2,11 +2,9 @@
 
 //! The pseudo-random generator used for sampling scalars.
 
-use core::array::from_fn;
-
 use alloc::vec::Vec;
-use ff::PrimeField;
-use group::Group;
+use core::array::from_fn;
+use group::{ff::PrimeField,Group};
 use num_bigint::BigUint;
 use num_traits::Num;
 use rand_core::CryptoRngCore;

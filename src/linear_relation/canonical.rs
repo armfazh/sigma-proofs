@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 
 use ff::Field;
 use group::prime::PrimeGroup;
-use spongefish::{Decoding, Encoding, NargDeserialize, NargSerialize};
+use spongefish::{Codec, Encoding, NargDeserialize, NargSerialize};
 use subtle::{Choice, ConstantTimeEq};
 
 use super::{GroupMap, GroupVar, LinearCombination, LinearRelation, ScalarTerm, ScalarVar};
@@ -46,7 +46,7 @@ type WeightedGroupCache<G> = Vec<Vec<(<G as group::Group>::Scalar, GroupVar<G>)>
 impl<G> CanonicalLinearRelation<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G::Scalar: Codec,
 {
     /// Create a new empty canonical linear relation.
     ///
@@ -66,6 +66,7 @@ where
     ///
     /// It is used to build a canonical linear relation directly from a linear relation.
     /// No optimizations and checks are performed so to be compliant with sigma proofs spec.
+    /// See Issue: https://github.com/mmaker/draft-irtf-cfrg-sigma-protocols/issues/143
     pub fn new_from_lr(protocol_id: &[u8], statement: LinearRelation<G>) -> Self {
         let linear_combinations = statement
             .linear_map
@@ -273,10 +274,12 @@ where
         }
 
         // Dump the group elements.
-        let group_reprs = serialize_elements(
+        let group_reprs = serialize_messages(
             self.group_elements
                 .iter()
-                .map(|(_, elem)| elem.expect("expected group variable to be assigned")),
+                .map(|(_, elem)| *elem.expect("expected group variable to be assigned"))
+                .collect::<Vec<_>>()
+                .as_slice(),
         );
         out.extend_from_slice(&group_reprs);
 
@@ -456,7 +459,7 @@ where
 impl<G> TryFrom<LinearRelation<G>> for CanonicalLinearRelation<G>
 where
     G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G::Scalar: Codec,
 {
     type Error = InvalidInstance;
 
@@ -467,8 +470,8 @@ where
 
 impl<G> TryFrom<&LinearRelation<G>> for CanonicalLinearRelation<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize + MultiScalarMul,
+    G::Scalar: Codec,
 {
     type Error = InvalidInstance;
 
@@ -534,8 +537,13 @@ where
 
 impl<G> CanonicalLinearRelation<G>
 where
-    G: PrimeGroup + Encoding<[u8]> + NargSerialize + NargDeserialize+ ConstantTimeEq+ MultiScalarMul,
-    G::Scalar: Encoding<[u8]> + NargSerialize + NargDeserialize + Decoding<[u8]>,
+    G: PrimeGroup
+        + Encoding<[u8]>
+        + NargSerialize
+        + NargDeserialize
+        + ConstantTimeEq
+        + MultiScalarMul,
+    G::Scalar: Codec,
 {
     /// Tests is the witness is valid.
     ///

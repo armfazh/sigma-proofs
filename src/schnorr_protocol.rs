@@ -9,7 +9,7 @@ use crate::errors::{Error, Result};
 use crate::linear_relation::CanonicalLinearRelation;
 use crate::rng::{random_scalars, random_scalars_vec};
 use crate::traits::{SigmaProtocol, SigmaProtocolSimulator, Transcript};
-use crate::{LinearRelation, Nizk};
+use crate::{LinearRelation, MultiScalarMul, Nizk};
 use alloc::vec::Vec;
 
 use group::prime::PrimeGroup;

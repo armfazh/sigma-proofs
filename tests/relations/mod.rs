@@ -5,6 +5,7 @@ use spongefish::{Codec, Encoding, NargDeserialize, NargSerialize};
 use sigma_proofs::{
     linear_relation::{CanonicalLinearRelation, LinearRelation, Sum},
     rng::{random_scalars, random_scalars_vec},
+	MultiScalarMul,
 };
 
 pub(crate) fn random_elem<G>(rng: &mut impl CryptoRngCore) -> G

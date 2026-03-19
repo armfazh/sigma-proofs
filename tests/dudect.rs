@@ -29,7 +29,6 @@ use curve25519_dalek::{RistrettoPoint as G, Scalar};
 use rand_chacha::{rand_core::SeedableRng, ChaCha12Rng};
 use rand_core::{CryptoRng, CryptoRngCore, RngCore};
 use serial_test::serial;
-
 use sigma_proofs::{
     codec::Shake128ByteSchnorrCodec,
     composition::{ComposedRelation, ComposedWitness},

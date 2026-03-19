@@ -11,7 +11,8 @@ use curve25519_dalek::RistrettoPoint;
 use group::Group;
 use rand::rngs::OsRng;
 
-use sigma_proofs::{errors::Error, LinearRelation};
+use sigma_proofs::errors::Error;
+use sigma_proofs::LinearRelation;
 
 type ProofResult<T> = Result<T, Error>;
 

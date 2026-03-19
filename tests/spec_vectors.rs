@@ -4,20 +4,20 @@ use p256::ProjectivePoint as P256_Group;
 use rand::SeedableRng;
 use spongefish::{Codec, Encoding, NargDeserialize, NargSerialize};
 
-use sigma_proofs::linear_relation::CanonicalLinearRelation;
+use sigma_proofs::{linear_relation::CanonicalLinearRelation, MultiScalarMul};
 
 mod spec;
 use spec::{rng::TestDRNG, vectors::TestVector};
 
 #[test]
 fn test_spec_testvectors_bls12381() {
-    let vectors_json = include_str!("./spec/vectors/sigma-proofs_Shake128_BLS12381.json");
+    let vectors_json = include_str!("./spec/testdata/sigma-proofs_Shake128_BLS12381.json");
     testvectors::<BLS12381_Group>(vectors_json);
 }
 
 #[test]
 fn test_spec_testvectors_p256() {
-    let vectors_json = include_str!("./spec/vectors/sigma-proofs_Shake128_P256.json");
+    let vectors_json = include_str!("./spec/testdata/sigma-proofs_Shake128_P256.json");
     testvectors::<P256_Group>(vectors_json);
 }
 
@@ -39,7 +39,7 @@ where
         let mut parsed_instance = CanonicalLinearRelation::<G>::from_label(&vector.Statement.0)
             .expect("Failed to parse statement");
 
-        // Assign protocol identifier
+        // Assign protocol identifier. See https://github.com/mmaker/draft-irtf-cfrg-sigma-protocols/issues/142
         parsed_instance.protocol_id = vector.Ciphersuite.as_bytes().to_vec();
 
         // Decode the witness from the test vector
