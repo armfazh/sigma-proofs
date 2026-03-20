@@ -4,7 +4,7 @@
 //! a Sigma protocol proving different types of discrete logarithm relations (eg. Schnorr, Pedersen's commitments)
 //! through a group morphism abstraction (see [Maurer09](https://crypto-test.ethz.ch/publications/files/Maurer09.pdf)).
 
-use crate::codec::{pad_zeros, Shake128ByteSchnorrCodec};
+use crate::codec::Shake128ByteSchnorrCodec;
 use crate::errors::{Error, Result};
 use crate::linear_relation::CanonicalLinearRelation;
 use crate::rng::{random_scalars, random_scalars_vec};
@@ -132,7 +132,7 @@ where
     }
 
     fn protocol_identifier(&self) -> [u8; 64] {
-        pad_zeros(&self.protocol_id)
+        self.protocol_id
     }
 }
 

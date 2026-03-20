@@ -22,7 +22,7 @@ use crate::serialization::serialize_messages;
 /// This struct represents a normalized form of a linear relation where each
 /// constraint is of the form: image_i = Σ (scalar_j * group_element_k)
 /// without weights or extra scalars.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct CanonicalLinearRelation<G: PrimeGroup> {
     /// The image group elements (left-hand side of equations)
     pub image: Vec<GroupVar<G>>,
@@ -34,7 +34,7 @@ pub struct CanonicalLinearRelation<G: PrimeGroup> {
     /// Number of scalar variables
     pub num_scalars: usize,
     /// Protocol identifier
-    pub protocol_id: Vec<u8>,
+    pub protocol_id: [u8; 64],
 }
 
 /// Private type alias used to simplify function signatures below.
@@ -58,7 +58,7 @@ where
             linear_combinations: Vec::new(),
             group_elements: GroupMap::default(),
             num_scalars: 0,
-            protocol_id: Vec::new(),
+            protocol_id: [0u8; 64],
         }
     }
 
@@ -67,7 +67,7 @@ where
     /// It is used to build a canonical linear relation directly from a linear relation.
     /// No optimizations and checks are performed so to be compliant with sigma proofs spec.
     /// See Issue: https://github.com/mmaker/draft-irtf-cfrg-sigma-protocols/issues/143
-    pub fn new_from_lr(protocol_id: &[u8], statement: LinearRelation<G>) -> Self {
+    pub fn new_from_lr(protocol_id: [u8; 64], statement: LinearRelation<G>) -> Self {
         let linear_combinations = statement
             .linear_map
             .linear_combinations
@@ -90,7 +90,7 @@ where
             linear_combinations,
             group_elements: statement.linear_map.group_elements,
             num_scalars: statement.linear_map.num_scalars,
-            protocol_id: protocol_id.to_vec(),
+            protocol_id,
         }
     }
 

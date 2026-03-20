@@ -40,7 +40,10 @@ where
             .expect("Failed to parse statement");
 
         // Assign protocol identifier. See https://github.com/mmaker/draft-irtf-cfrg-sigma-protocols/issues/142
-        parsed_instance.protocol_id = vector.Ciphersuite.as_bytes().to_vec();
+        let name = vector.Ciphersuite.as_bytes();
+        let mut protocol_id = [0; 64];
+        protocol_id[0..name.len()].copy_from_slice(name);
+        parsed_instance.protocol_id = protocol_id;
 
         // Decode the witness from the test vector
         let mut cursor = vector.Witness.0.as_slice();

@@ -52,17 +52,6 @@ where
     _marker: PhantomData<G>,
 }
 
-pub(crate) const fn pad_zeros<const N: usize>(prefix: &[u8]) -> [u8; N] {
-    assert!(prefix.len() <= N, "prefix is too long");
-    let mut padded = [0; N];
-    let mut i = 0;
-    while i < prefix.len() {
-        padded[i] = prefix[i];
-        i += 1;
-    }
-    padded
-}
-
 impl<G, H> Codec for ByteSchnorrCodec<G, H>
 where
     G: Group,
@@ -73,7 +62,9 @@ where
 
     fn new(protocol_id: &[u8; 64], session: &[u8], instance_label: &[u8]) -> Self {
         const PREFIX: &[u8] = b"fiat-shamir/session-id";
-        let iv = pad_zeros(PREFIX);
+        let mut iv = [0u8; 64];
+        iv[..PREFIX.len()].copy_from_slice(PREFIX);
+
         let mut session_hash_state = H::new(iv);
         session_hash_state.absorb(session);
 
