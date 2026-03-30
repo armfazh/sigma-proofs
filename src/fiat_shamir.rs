@@ -83,7 +83,7 @@ where
             initialize_prover_state(protocol_id, &self.session_id, instance_label.as_ref());
         let (commitment, ip_state) = self.interactive_proof.prover_commit(witness, rng)?;
         transcript.prover_messages(&commitment);
-        let challenge = transcript.verifier_message::<P::Challenge>();
+        let challenge = transcript.verifier_message_expand16::<P::Challenge>();
         let response = self
             .interactive_proof
             .prover_response(ip_state, &challenge)?;
@@ -116,7 +116,7 @@ where
             narg_string,
         );
         let commitment = transcript.prover_messages_vec::<P::Commitment>(commitment_len)?;
-        let challenge = transcript.verifier_message::<P::Challenge>();
+        let challenge = transcript.verifier_message_expand16::<P::Challenge>();
         let response = transcript.prover_messages_vec::<P::Response>(response_len)?;
         transcript.check_eof()?;
         self.interactive_proof
@@ -154,7 +154,7 @@ where
         let (commitment, ip_state) = self.interactive_proof.prover_commit(witness, rng)?;
         let commitment_bytes = serialize_messages(&commitment);
         transcript.public_message(commitment_bytes.as_slice());
-        let challenge = transcript.verifier_message::<P::Challenge>();
+        let challenge = transcript.verifier_message_expand16::<P::Challenge>();
         let response = self
             .interactive_proof
             .prover_response(ip_state, &challenge)?;
@@ -206,7 +206,7 @@ where
         let mut transcript =
             initialize_verifier_state(protocol_id, &self.session_id, instance_label.as_ref(), &[]);
         transcript.public_message(commitment_bytes.as_slice());
-        let recomputed_challenge = transcript.verifier_message::<P::Challenge>();
+        let recomputed_challenge = transcript.verifier_message_expand16::<P::Challenge>();
         if challenge != recomputed_challenge {
             return Err(Error::VerificationFailure);
         }
