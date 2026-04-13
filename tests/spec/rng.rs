@@ -20,7 +20,7 @@ impl TestDrng {
 
 fn fixed_seed(label: &[u8]) -> [u8; 32] {
     if label.len() > 32 {
-        panic!("seed length must be less or equal to 32 bytes")
+        panic!("seed label length must be less or equal to 32 bytes")
     }
 
     let mut seed = [0u8; 32];

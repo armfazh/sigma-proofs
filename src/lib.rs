@@ -75,6 +75,7 @@ pub mod errors;
 pub mod group;
 pub mod linear_relation;
 pub mod rng;
+pub mod spec_compat;
 pub mod traits;
 
 pub(crate) mod fiat_shamir;

@@ -83,8 +83,8 @@ impl<G: PrimeGroup> ScalarTerm<G> {
 /// A term in a linear combination, representing `scalar * elem`.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Term<G> {
-    scalar: ScalarTerm<G>,
-    elem: GroupVar<G>,
+    pub(crate) scalar: ScalarTerm<G>,
+    pub(crate) elem: GroupVar<G>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -94,7 +94,7 @@ pub struct Weighted<T, F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Sum<T>(Vec<T>);
+pub struct Sum<T>(pub(crate) Vec<T>);
 
 impl<T> Sum<T> {
     /// Access the terms of the sum as slice reference.
