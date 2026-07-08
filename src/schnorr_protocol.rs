@@ -9,6 +9,7 @@ use crate::linear_relation::CanonicalLinearRelation;
 use crate::traits::{ScalarRng, SigmaProtocol, SigmaProtocolSimulator, Transcript};
 use crate::{LinearRelation, MultiScalarMul, Nizk};
 use alloc::vec::Vec;
+use ff::PrimeField;
 use itertools::Itertools;
 
 use group::prime::PrimeGroup;
@@ -203,6 +204,74 @@ where
     /// ```
     pub fn into_nizk(self, session_identifier: &[u8]) -> Result<Nizk<CanonicalLinearRelation<G>>> {
         Ok(Nizk::new(session_identifier, self))
+    }
+
+    /// Batch-verifies batchable non-interactive proofs, following the
+    /// batch verification procedure of the IETF spec.
+    ///
+    /// Each proof's challenge is re-derived individually; a single random
+    /// linear combination of all the verification equations is then checked
+    /// with one multi-scalar multiplication. The 128-bit batching randomness
+    /// is squeezed from a fresh duplex sponge only after absorbing, for every
+    /// proof, its session identifier, its instance label, and its NARG string,
+    /// so that it is unpredictable to the prover.
+    ///
+    /// Instances are validated when constructed ([`CanonicalLinearRelation`]
+    /// is type-safe). Empty batches are valid. Upon failure, the offending
+    /// NARG string is not identified; an application may fall back to
+    /// verifying the NARG strings individually with
+    /// [`Nizk::verify_batchable`].
+    ///
+    /// # Parameters
+    /// - `proofs`: Pairs of `(nizk_instance, serialized_batchable_proof)`.
+    ///
+    /// # Returns
+    /// - `Ok(())` if all proofs are valid.
+    /// - `Err(Error)` if the batch is larger than `2^32 - 1`, or any proof is
+    ///   malformed or invalid.
+    pub fn verify_batch(proofs: &[(&Nizk<Self>, &[u8])]) -> Result<()> {
+        if proofs.is_empty() {
+            return Ok(());
+        }
+        if u32::try_from(proofs.len()).is_err() {
+            return Err(Error::InvalidInstanceWitnessPair);
+        }
+
+        let mut sponge = crate::fiat_shamir::initialize_batch_verifier_state();
+        for (nizk, narg_string) in proofs {
+            sponge.public_message(&crate::fiat_shamir::derive_session_id(&nizk.session_id));
+            sponge.public_message(nizk.interactive_proof.instance_label().as_ref());
+            sponge.public_message(*narg_string);
+        }
+
+        // sum(r[i][j] * (commitment[i][j] + challenge[i] * image[i][j]
+        //                - map(instance[i], response[i])[j])) == identity,
+        // with each r[i][j] a 16-byte squeeze read as a little-endian integer,
+        // in row-major order.
+        let mut scalars = Vec::new();
+        let mut bases = Vec::new();
+        for (nizk, narg_string) in proofs {
+            let relation = &nizk.interactive_proof;
+            let (commitment, challenge, response) = nizk.deserialize_batchable(narg_string)?;
+            let equations = core::iter::zip(&relation.image, &relation.linear_combinations);
+            for ((image_var, constraint), commitment_j) in equations.zip_eq(commitment) {
+                let r = G::Scalar::from_u128(u128::from_le_bytes(
+                    sponge.verifier_message::<[u8; 16]>(),
+                ));
+                scalars.push(r);
+                bases.push(commitment_j);
+                scalars.push(r * challenge);
+                bases.push(relation.group_elements.get(*image_var)?);
+                for (scalar_var, group_var) in constraint {
+                    scalars.push(-(r * response[scalar_var.index()]));
+                    bases.push(relation.group_elements.get(*group_var)?);
+                }
+            }
+        }
+        match G::msm(&scalars, &bases) == G::identity() {
+            true => Ok(()),
+            false => Err(Error::VerificationFailure),
+        }
     }
 }
 
