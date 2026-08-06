@@ -91,20 +91,19 @@ where
         Ok(transcript.narg_string().to_vec())
     }
 
-    /// Verifies a batchable non-interactive proof.
+    /// Deserializes a batchable non-interactive proof into its transcript,
+    /// re-deriving the challenge from the commitment.
     ///
     /// # Parameters
-    /// - `proof`: A serialized batchable proof.
+    /// - `narg_string`: A serialized batchable proof.
     ///
     /// # Returns
-    /// - `Ok(())` if the proof is valid.
-    /// - `Err(Error)` if deserialization or verification fails.
-    ///
-    /// # Errors
-    /// - Returns [`Error::VerificationFailure`] if:
-    ///   - The challenge doesn't match the recomputed one from the commitment.
-    ///   - The response fails verification under the Sigma protocol.
-    pub fn verify_batchable(&self, narg_string: &[u8]) -> Result<(), Error> {
+    /// - `Ok((commitment, challenge, response))` on success.
+    /// - `Err(Error)` if the proof is malformed or has trailing bytes.
+    pub(crate) fn deserialize_batchable(
+        &self,
+        narg_string: &[u8],
+    ) -> Result<crate::traits::Transcript<P>, Error> {
         let protocol_id = self.interactive_proof.protocol_identifier();
         let instance_label = self.interactive_proof.instance_label();
         let commitment_len = self.interactive_proof.commitment_len();
@@ -119,6 +118,24 @@ where
         let challenge = transcript.verifier_message::<P::Challenge>();
         let response = transcript.prover_messages_vec::<P::Response>(response_len)?;
         transcript.check_eof()?;
+        Ok((commitment, challenge, response))
+    }
+
+    /// Verifies a batchable non-interactive proof.
+    ///
+    /// # Parameters
+    /// - `proof`: A serialized batchable proof.
+    ///
+    /// # Returns
+    /// - `Ok(())` if the proof is valid.
+    /// - `Err(Error)` if deserialization or verification fails.
+    ///
+    /// # Errors
+    /// - Returns [`Error::VerificationFailure`] if:
+    ///   - The challenge doesn't match the recomputed one from the commitment.
+    ///   - The response fails verification under the Sigma protocol.
+    pub fn verify_batchable(&self, narg_string: &[u8]) -> Result<(), Error> {
+        let (commitment, challenge, response) = self.deserialize_batchable(narg_string)?;
         self.interactive_proof
             .verifier(&commitment, &challenge, &response)
     }
@@ -246,7 +263,21 @@ fn initialize_verifier_state<'a>(
         .std_verifier(narg_string)
 }
 
-fn derive_session_id(session_id: &[u8]) -> [u8; 64] {
+/// Fresh duplex sponge for deriving batch-verification randomness, per the
+/// spec: `DS.Init(DeriveSessionID("irtf-cfrg-sigma-protocols/batch-verify"))`.
+///
+/// The derived batching session identifier is the sponge's initialization
+/// vector; the empty session and instance below encode to zero bytes and
+/// absorb nothing.
+pub(crate) fn initialize_batch_verifier_state() -> VerifierState<'static> {
+    let batching_sid = derive_session_id(b"irtf-cfrg-sigma-protocols/batch-verify");
+    DomainSeparator::new(batching_sid)
+        .without_session()
+        .instance([0u8; 0])
+        .std_verifier(&[])
+}
+
+pub(crate) fn derive_session_id(session_id: &[u8]) -> [u8; 64] {
     const RATE: usize = 168;
     const DOMAIN: &[u8] = b"fiat-shamir/session-id";
 
