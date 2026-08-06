@@ -1625,7 +1625,7 @@ where
                     .len()
                     .checked_sub(1)
                     .ok_or(Error::InvalidInstanceWitnessPair)?;
-                let challenges = rG::random_scalars_vec(rng, challenge_count);
+                let challenges = G::random_scalars_vec(rng, challenge_count);
                 let mut responses = Vec::with_capacity(ps.len());
                 for p in ps.iter() {
                     let mut resp = p.simulate_response(&mut *rng);
